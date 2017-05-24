@@ -14,10 +14,10 @@ setup(
     install_requires = ['MySQL-python>=1.2.5', 
 			             'networkx>=1.11',
                         'progressbar>=2.3',
-                        'plotly>=2.0.2',
-                        'matplotlib>=1.5.3',
                         'numpy>=1.11.1',
                         'scipy>=0.18.1',
+                        'plotly>=2.0.2',
+                        'matplotlib>=1.5.3',
                         #'ez_setup>=0.9',  # must be installed ahead of time with pip install ez_setup
                         'spc>=0.3'
 
