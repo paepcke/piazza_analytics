@@ -1,5 +1,5 @@
 # piazza_analytics
-###Building meaningful Analytics from Piazza interactions
+### Building meaningful Analytics from Piazza interactions
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 ### What do we aim to achieve:
 - Build a system for awarding fair credit to students based on their Piazza  participation by evaluating their contributions fairly and allowing instructors to configure the weightage given to each of the factors that have been considered for calculating the contribution of each student.
