@@ -13,7 +13,7 @@ setup(
     tests_require    = test_requirements,
     install_requires = ['MySQL-python>=1.2.5', 
 			             'networkx>=1.11',
-                        'progressbar>=2.3',
+                        #'progressbar>=2.3',
                         'numpy>=1.11.1',
                         'scipy>=0.18.1',
                         'plotly>=2.0.2',
@@ -31,7 +31,7 @@ setup(
     },
 
     # metadata for upload to PyPI
-    author = "Ankita Bahani",
+    author = "Ankita Bihani",
     author_email = "paepcke@cs.stanford.edu",
     description = "Building meaningful Analytics from Piazza interactions ",
     license = "BSD",
