@@ -2,12 +2,12 @@
 Takes paths containing users.json and class_content.json for class exports, and generates corresponding MySQL databases containing forum post data.
 Note that not all post metadata is created in the databases. However, the essential requirements for analytics are taken care of.
 For each class, a database with four tables is created:
-1- 'users' table: This table contains all the information about the participants (students/ instructors) in the course. 
+1- 'users' table: This table contains all the information about the participants (students/ instructors) in the course.
 2- 'class_content' table: This table contains the entire dataset dump of interactions on Piazza (questions, notes, follow-ups, student responses, instructor responses, feedbacks; literally everything).
 3- 'questions' table: This table contains all the questions and their associated responses, feedbacks/ followups and other relevant statistics.
-4- 'notes' table: This table contains all the notes and their feedbacks/ followups and other relevant statistics. 
+4- 'notes' table: This table contains all the notes and their feedbacks/ followups and other relevant statistics.
 
-To run the code, 
+To run the code,
 
 python new_schema_piazza.py --p /path_to_data_folder/ -d database_name
 E.g. $ python new_schema_piazza.py -p /Users/xyz/Documents/piazza_downloads/data_folder -d music101_db
@@ -54,7 +54,7 @@ class DataParser(object):
         self.config_inst = Config()
         #self.logger = Logger()
 
-    def fetch(self, task, ta_list):
+    def fetch(self, task):
         # Connect to the database using the specified parameters
         con = mdb.connect(DB_PARAMS['host'], DB_PARAMS['user'], DB_PARAMS['password'])
         cur = con.cursor(mdb.cursors.DictCursor)
@@ -65,7 +65,7 @@ class DataParser(object):
             cur.execute(q)
         except:
             pass
-        
+
         q = "CREATE DATABASE {0};".format(task['db_name'])
         cur.execute(q)
 
@@ -90,7 +90,7 @@ class DataParser(object):
         def parse_posts(x):
                     if 'created' in x.keys():
                         tc = x['created']
-                    else: 
+                    else:
                         tc = '2000-01-10T00:00:00Z'
                     dt = datetime(int(tc[0:4]), int(tc[5:7]), int(tc[8:10]), int(tc[11:13]), int(tc[14:16]), int(tc[17:19]))
                     nodes = []
@@ -125,9 +125,9 @@ class DataParser(object):
                     if 'folders' in x.keys():
                         folders = json.dumps(x['folders'])
                     else:
-                        folders = 'None'    
+                        folders = 'None'
                     tags = json.dumps(x['tags'])
-            
+
                     if 'children' in x.keys():
                         for c in x['children']:
                             ch = self.ChildTreeToList(c,x['nr'], x['unique_views'], x['id'], folders, tags)
@@ -232,7 +232,7 @@ class DataParser(object):
                 follow_ups = ''
 
             follow_ups = cleanhtml(self, follow_ups)
-      
+
             nodes.append({
                 'id':question_id,
                 'question_text': question_content,
@@ -240,7 +240,7 @@ class DataParser(object):
                 'no_upvotes_on_question': no_upvotes_on_que,
                 'i_answer': instructor_answer,
                 's_answer': student_answer,
-                'no_upvotes_on_i_answer': no_upvotes_on_i_answer, 
+                'no_upvotes_on_i_answer': no_upvotes_on_i_answer,
                 'no_upvotes_on_s_answer': no_upvotes_on_s_answer,
                 'no_unique_collaborations': no_unique_collab,
                 'follow_up_thread':follow_ups,
@@ -249,7 +249,7 @@ class DataParser(object):
                 'tags':tags,
                 'created':created_timestamp
                 })
-                    
+
 
         for node in nodes:
             q = "INSERT INTO questions VALUES ('{0}','{1}', '{2}',{3}, '{4}', '{5}', {6}, {7}, {8}, '{9}', {10}, '{11}', '{12}', '{13}');".format(
@@ -312,10 +312,10 @@ class DataParser(object):
                 for i in range(len(data)):
                     follow_ups += data[i]['content']
                     follow_ups += "******************"
-                    follow_up_thread_len +=1 
+                    follow_up_thread_len +=1
             else:
                 follow_ups = ''
-                
+
             follow_ups = cleanhtml(self, follow_ups)
 
             nodes.append({
@@ -330,7 +330,7 @@ class DataParser(object):
                 'tags':tags,
                 'created':created_timestamp
                 })
-                
+
         for node in nodes:
             q = "INSERT INTO notes VALUES ('{0}','{1}', '{2}',{3}, {4}, '{5}', {6}, '{7}','{8}', '{9}');".format(
                 node['id'],
@@ -418,7 +418,7 @@ class DataParser(object):
             #         print data[i]
             #         endorsers += ','
             #     endorsers += data[i]['endorsers']
-                
+
             # elif cur.rowcount == 1:
             #     endorsers = data[0]['endorsers']
 
@@ -435,7 +435,7 @@ class DataParser(object):
             #     for i in range(len(data)):
             #         upvoters += data[i]['upvoters']
             #         upvoters += ','
-    
+
             # else:
             #     upvoters = "None"
 
@@ -459,11 +459,11 @@ class DataParser(object):
                     instructor_answer_exists = True
 
                 if not instructor_answer_exists:
-                    cur.execute("""SELECT distinct count(*) AS i_notes_count from class_content where tags LIKE 
+                    cur.execute("""SELECT distinct count(*) AS i_notes_count from class_content where tags LIKE
                         "%%instructor-note%%" and user_id = '%s' """ %(user_id))
                     data = cur.fetchall()
                     if data[0]['i_notes_count'] != 0:
-                        instructor_note_exists = True 
+                        instructor_note_exists = True
 
             if student_answer_exists:
                 cur.execute("""UPDATE users set role = 'student' where id = '%s' """ %(user_id))
@@ -517,7 +517,7 @@ class DataParser(object):
     def ChildTreeToList(self, x,nr,unique_views, root_id, folders, tags):
         if 'created' in x.keys():
             tc = x['created']
-        else: 
+        else:
             tc = '2000-01-10T00:00:00Z'
         dt = datetime(int(tc[0:4]), int(tc[5:7]), int(tc[8:10]), int(tc[11:13]), int(tc[14:16]), int(tc[17:19]))
 
@@ -608,4 +608,4 @@ if __name__ == '__main__':
 #task = { "input" : "/Users/ankita/Desktop/RA/piazza_downloads/data_folder/", "db_name": "cs246_winter2017"}
 task = { "input": args.path_dataset, "db_name": args.db_name}
 parser = DataParser()
-parser.fetch(task,args.ta_list)
+parser.fetch(task)

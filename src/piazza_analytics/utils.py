@@ -35,7 +35,3 @@ def identify_role(self, task):
                 if log['type']=='s_answer' or log['type'] == 's_answer_update':
                     students.add(log['uid'])
     return set(instructors), set(students)
-
-
-def update_and_propogate_role(self, students, instructors):
-    
