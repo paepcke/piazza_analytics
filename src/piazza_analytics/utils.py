@@ -1,6 +1,6 @@
-
 import re
 import json
+import csv
 
 """This function is used to clean up the HTML tags from all the questions/ answers/ notes/ follow ups/ feedbacks  text etc.
 """
@@ -35,3 +35,22 @@ def identify_role(self, task):
                 if log['type']=='s_answer' or log['type'] == 's_answer_update':
                     students.add(log['uid'])
     return set(instructors), set(students)
+
+
+def get_nodes_and_edges(path):
+    weighted_edges = set()
+    nodes = set()
+    with open(path) as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            nodes.add(row[0])
+            edge_tuple = (row[0],row[1],int(row[2]))
+            if edge_tuple[2]!=0:
+                weighted_edges.add(edge_tuple)
+    return nodes,weighted_edges
+
+def write_network_to_file(out_file,user_edges):
+    fieldnames = ['user1','user2','num_endorsements']
+    writer = csv.DictWriter(open(out_file,'w'), fieldnames=fieldnames)
+    for key in user_edges:
+        writer.writerow({'user1': key[0],'user2': key[1],'num_endorsements':user_edges[key]})

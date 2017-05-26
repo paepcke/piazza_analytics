@@ -26,6 +26,8 @@ from datetime import datetime
 import MySQLdb as mdb
 from constants import *
 from utils import *
+from network_generation import *
+import re
 
 logger_output_file = 'output_logs.log'
 logger = logging.getLogger('piazza_application')
@@ -38,12 +40,12 @@ class Config(object):
     """
     credit = {}
     credit['questions_asked'] = 1.0
-    credit['questions_answered'] = 2.0
-    credit['total_posts'] = 3.0
-    credit['total_views'] = 1.0
-    credit['days_online'] = 0.75
+    credit['questions_answered'] = 3.0
+    credit['total_posts'] = 1.0
+    credit['total_views'] = 0.0
+    credit['days_online'] = 0.0
     credit['no_endorsed_answers'] = 5.0
-    credit['total_no_endorsements'] = 7.0
+    credit['total_no_endorsements'] = 5.0
 
 
 class DataParser(object):
@@ -54,7 +56,7 @@ class DataParser(object):
         self.config_inst = Config()
         #self.logger = Logger()
 
-    def fetch(self, task):
+    def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file):
         # Connect to the database using the specified parameters
         con = mdb.connect(DB_PARAMS['host'], DB_PARAMS['user'], DB_PARAMS['password'])
         cur = con.cursor(mdb.cursors.DictCursor)
@@ -112,13 +114,15 @@ class DataParser(object):
                             'unique_views': x['unique_views'],
                             'no_upvotes_defunct': x['no_upvotes'] if 'no_upvotes' in x else 0,
                             'no_endorsements':len(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else 0,
-                            'endorsers':json.dupms(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else ' ',
-                            'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x else ' ',
+                            'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x and len(x['tag_endorse_arr']) > 0 else None,
+                            'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x and len(x['tag_good_arr']) > 0 else None,
                             'folders':json.dumps(x['folders']) if 'folders' in x else ' ',
                             'no_upvoters':len(x['tag_good_arr']) if 'tag_good_arr' in x else 0,
                             'user_id_role': "not available",
                             'root_id': x['id']
                         })
+                        if 'tag_endorse_arr' in x:
+                            print len(x['tag_endorse_arr'])
                     else:
                         logger.info("Not expecting any posts without 'history' in keys")
 
@@ -353,15 +357,15 @@ class DataParser(object):
 
         logger.info("Creating the users table")
 
-        q = "CREATE TABLE users (id varchar(255) PRIMARY KEY, answers int, asks int, posts int, views int, days_online int, no_endorsed_answers int, total_no_endorsements int, role varchar(255), contribution int);"
+        q = "CREATE TABLE users (id varchar(255) PRIMARY KEY, answers int, asks int, posts int, views int, days_online int, no_endorsed_answers int, total_no_endorsements int, role varchar(255), contribution int, endorsers TEXT, upvoters TEXT);"
         cur.execute(q)
 
         f = open(task['input'] + 'users.json', 'rb')
-        data = json.loads(f.read())
+        parsed_user_data = json.loads(f.read())
         f.close()
 
-        for x in data:
-            q = "INSERT INTO users (id, answers, asks, posts, views, days_online, no_endorsed_answers, total_no_endorsements,role, contribution) VALUES ('{0}',{1},{2},{3},{4},{5},{6},{7}, '{8}', {9});".format(x['user_id'], x['answers'], x['asks'], x['posts'], x['views'], x['days'], 0, 0, 'not available', 0)
+        for x in parsed_user_data:
+            q = "INSERT INTO users (id, answers, asks, posts, views, days_online, no_endorsed_answers, total_no_endorsements,role, contribution, endorsers, upvoters) VALUES ('{0}',{1},{2},{3},{4},{5},{6},{7}, '{8}', {9}, '{10}', '{11}');".format(x['user_id'], x['answers'], x['asks'], x['posts'], x['views'], x['days'], 0, 0, 'not available', 0, None, None)
             cur.execute(q)
 
         list_user_ids = []
@@ -407,39 +411,37 @@ class DataParser(object):
 
             cur.execute("""UPDATE users set contribution = %d WHERE id = '%s'""" %(total_credit,user_id))
 
-            # ''' Extracting the endorsers of a user '''
+            ''' Extracting the endorsers of a user '''
 
-            # endorsers = ''
-            # cur.execute("""SELECT endorsers from class_content where user_id = '%s' and no_endorsements != 0 """ %(user_id))
-            # data = cur.fetchall()
-            # if cur.rowcount > 1:
-            #     for i in range(len(data)-1):
-            #         endorsers += data[i]['endorsers']
-            #         print data[i]
-            #         endorsers += ','
-            #     endorsers += data[i]['endorsers']
+            cur.execute("""SELECT endorsers from class_content where user_id = '%s' and no_endorsements != 0  and endorsers != 'None'""" %(user_id))
+            data = cur.fetchall()
+            endorsers = ''
+            for i in range(len(data)):
+                endorsers += data[i]['endorsers'][1:-1]
+                endorsers += ','
 
-            # elif cur.rowcount == 1:
-            #     endorsers = data[0]['endorsers']
+            if len(endorsers) < 1 :
+                endorsers = None
+            else:
+                endorsers = endorsers[:-1]
 
-            # else:
-            #     endorsers = "None"
+            cur.execute("""UPDATE users set endorsers = '%s' WHERE id = '%s'""" %(endorsers, user_id))
 
-            # cur.execute("""UPDATE users set endorsers = '%s' WHERE id = '%s'""" %(endorsers, user_id))
+            ''' Extracting the upvoters of a user '''
+            
+            cur.execute("""SELECT upvoters from class_content where user_id = '%s' and no_upvoters != 0  and upvoters != 'None'""" %(user_id))
+            data = cur.fetchall()
+            upvoters = ''
+            for i in range(len(data)):
+                upvoters += data[i]['upvoters'][1:-1]
+                upvoters += ','
 
-            # ''' Extracting the upvoters of a user '''
-            # upvoters = ''
-            # cur.execute("""SELECT upvoters from class_content where user_id = '%s' and no_upvoters != 0 """ %(user_id))
-            # data = cur.fetchall()
-            # if cur.rowcount != 0:
-            #     for i in range(len(data)):
-            #         upvoters += data[i]['upvoters']
-            #         upvoters += ','
+            if len(upvoters) < 1 :
+                upvoters = None
+            else:
+                upvoters = upvoters[:-1]
 
-            # else:
-            #     upvoters = "None"
-
-            # cur.execute("""UPDATE users set upvoters = '%s' WHERE id = '%s'""" %(upvoters, user_id))
+            cur.execute("""UPDATE users set upvoters = '%s' WHERE id = '%s'""" %(upvoters, user_id))
 
             '''Extracting the role of a user based on whether the user_id comes up in a student answer, instructor answer and/ or instructor note
             '''
@@ -507,12 +509,68 @@ class DataParser(object):
                     note_id = data[0]['id']
                     cur.execute("""UPDATE notes set user_id_role = '%s' where id = '%s' """ %(role, note_id))
 
+        list_instructors = []
+        cur.execute("""SELECT id from users where role = 'instructor'""")
+        data = cur.fetchall()
+        for row in data:
+            list_instructors.append(row['id'])
+
+        logger.info("Created the users table")
+
+        # Initialzing endorsements
+        endorsement_edges = {}
+        for i in range(len(list_user_ids)):
+            for j in range(len(list_user_ids)):
+                endorsement_edges[(list_user_ids[i].strip(),list_user_ids[j].strip())] = 0
+                endorsement_edges[(list_user_ids[j].strip(),list_user_ids[i].strip())] = 0
+
+        for i in range(len(list_user_ids)):
+            user_id = list_user_ids[i]
+            cur.execute("""SELECT endorsers from users where id = '%s' """ %(user_id))
+            data = cur.fetchall()
+            if cur.rowcount != 0:
+                if data[0]['endorsers'] != 'None':
+                    split_data = data[0]['endorsers'].split(",")
+                    for i in range(len(split_data)):
+                        if (user_id.strip(),split_data[i].strip()[1:-1]) in endorsement_edges.keys():
+                            if split_data[i].strip()[1:-1] in list_instructors:
+                                endorsement_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
+                            else:
+                                endorsement_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
+      
+        write_network_to_file(endorsement_network_out_file,endorsement_edges)
+
+        upvote_edges = {}
+        for i in range(len(list_user_ids)):
+            for j in range(len(list_user_ids)):
+                upvote_edges[(list_user_ids[i].strip(),list_user_ids[j].strip())] = 0
+                upvote_edges[(list_user_ids[j].strip(),list_user_ids[i].strip())] = 0
+
+        for i in range(len(list_user_ids)):
+            user_id = list_user_ids[i]
+            cur.execute("""SELECT upvoters from users where id = '%s' """ %(user_id))
+            data = cur.fetchall()
+            if cur.rowcount != 0:
+                if data[0]['upvoters'] != 'None':
+                    split_data = data[0]['upvoters'].split(",")
+                    for i in range(len(split_data)):
+                        if (user_id.strip(),split_data[i].strip()[1:-1]) in upvote_edges.keys():
+                            if split_data[i].strip()[1:-1] in list_instructors:
+                                upvote_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
+                            else:
+                                upvote_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
+      
+        write_network_to_file(upvotes_network_out_file,upvote_edges)
+
+        combined_edges = {}
+        for k,v in endorsement_edges.items(): 
+            combined_edges[k] = endorsement_edges[k] + upvote_edges[k]
+
+        write_network_to_file(combined_network_out_file,cosmbined_edges)
 
 
         con.commit()
         con.close()
-        logger.info("Created the users table")
-
 
     def ChildTreeToList(self, x,nr,unique_views, root_id, folders, tags):
         if 'created' in x.keys():
@@ -542,8 +600,8 @@ class DataParser(object):
                 'unique_views':unique_views,
                 'no_upvotes_defunct': x['no_upvotes_defunct'] if 'no_upvotes_defunct' in x else 0,
                 'no_endorsements':len(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else 0,
-                'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else ' ',
-                'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x else ' ',
+                'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x and len(x['tag_endorse_arr']) > 0 else None,
+                'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x and len(x['tag_good_arr']) > 0 else None,
                 'folders':folders,
                 'no_upvoters':len(x['tag_good_arr']) if 'tag_good_arr' in x else 0,
                 'user_id_role': "not available",
@@ -566,8 +624,8 @@ class DataParser(object):
                 'unique_views':unique_views,
                 'no_upvotes_defunct': x['no_upvotes_defunct'] if 'no_upvotes_defunct' in x else 0,
                 'no_endorsements':len(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else 0,
-                'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else ' ',
-                'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x else ' ',
+                'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x and len(x['tag_endorse_arr']) > 0 else None,
+                'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x and len(x['tag_good_arr']) > 0 else None,
                 'folders':folders,
                 'no_upvoters':len(x['tag_good_arr']) if 'tag_good_arr' in x else 0,
                 'user_id_role': "not available",
@@ -607,5 +665,27 @@ if __name__ == '__main__':
 
 #task = { "input" : "/Users/ankita/Desktop/RA/piazza_downloads/data_folder/", "db_name": "cs246_winter2017"}
 task = { "input": args.path_dataset, "db_name": args.db_name}
+
+if not os.path.exists('../stats/'):
+    os.makedirs('../stats/')
+
+endorsement_network_out_file = "../stats/endorsement_network.csv"
+upvotes_network_out_file = "../stats/upvotes_network.csv"
+combined_network_out_file = "../stats/combined_network.csv"
+
 parser = DataParser()
-parser.fetch(task)
+parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file)
+
+
+endorsed_by_network = Graph(endorsement_network_out_file)
+endorsed_by_network.get_page_rank('../stats/endorsement_page_rank.csv')
+logger.info("Created endorsement network")
+
+upvoted_by_network = Graph(upvotes_network_out_file)
+upvoted_by_network.get_page_rank('../stats/upvotes_page_rank.csv')
+logger.info("Created upvotes network")
+
+combined_network = Graph(combined_network_out_file)
+combined_network.get_page_rank('../stats/combined_page_rank.csv')
+logger.info("Created combined network")
+
