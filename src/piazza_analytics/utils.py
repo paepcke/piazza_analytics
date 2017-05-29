@@ -44,13 +44,32 @@ def get_nodes_and_edges(path):
         reader = csv.reader(csvfile)
         for row in reader:
             nodes.add(row[0])
-            edge_tuple = (row[0],row[1],int(row[2]))
+            edge_tuple = (row[0],row[1],float(row[2]))
             if edge_tuple[2]!=0:
                 weighted_edges.add(edge_tuple)
     return nodes,weighted_edges
 
-def write_network_to_file(out_file,user_edges):
-    fieldnames = ['user1','user2','num_endorsements']
+def write_nodes_to_file(out_file,user_edges, list_instructors):
+    fieldnames = ['user1','user1_role']
+    role_dict = {}
     writer = csv.DictWriter(open(out_file,'w'), fieldnames=fieldnames)
     for key in user_edges:
-        writer.writerow({'user1': key[0],'user2': key[1],'num_endorsements':user_edges[key]})
+        if key[0] in list_instructors:
+            role_dict[key[0]] = "instructor"
+        else:
+            role_dict[key[0]] = "student"
+
+        if key[1] in list_instructors:
+            role_dict[key[1]] = "instructor"
+        else:
+            role_dict[key[1]] = "student"
+
+    for k, v in role_dict.items():
+        writer.writerow({'user1': k,'user1_role': v})
+  
+def write_network_to_file(out_file,user_edges):
+
+    fieldnames = ['Source','Target','Weight']
+    writer = csv.DictWriter(open(out_file,'w'), fieldnames=fieldnames)
+    for key in user_edges:
+        writer.writerow({'Source': key[0],'Target': key[1],'Weight':user_edges[key]})

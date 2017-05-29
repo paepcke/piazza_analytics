@@ -1,5 +1,6 @@
 import networkx as nx
 from utils import *
+import matplotlib.pyplot as plt
 
 class Graph:
     def __init__(self,path):
@@ -31,3 +32,10 @@ class Graph:
         # writer = csv.DictWriter(open("page_rank_scipy.csv",'w'), fieldnames=fieldnames)
         # for k, v in pr.items():
         #     writer.writerow({'user1': k,'pagerank':v})
+
+    def draw_graph(self, name):
+        nx.draw(self.G, node_color='c',edge_color='k',pos=nx.spring_layout(self.G,scale=3) )
+        # pos = nx.spring_layout(self.G)
+        # nx.draw_networkx_edges(self.G, pos, edgelist= self.edges, arrows=True)
+        plt.draw()
+        plt.savefig(name)

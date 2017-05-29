@@ -21,31 +21,14 @@ import json, time
 import os
 import argparse
 import sys
-import logging
 from datetime import datetime
 import MySQLdb as mdb
 from constants import *
 from utils import *
 from network_generation import *
+from faq_generator import *
 import re
-
-logger_output_file = 'output_logs.log'
-logger = logging.getLogger('piazza_application')
-logging.basicConfig(filename =logger_output_file, filemode= 'w', level=logging.INFO)
-
-class Config(object):
-
-    """Holds configurable parameters.
-       These can be configured by the instructors of the course.
-    """
-    credit = {}
-    credit['questions_asked'] = 1.0
-    credit['questions_answered'] = 3.0
-    credit['total_posts'] = 1.0
-    credit['total_views'] = 0.0
-    credit['days_online'] = 0.0
-    credit['no_endorsed_answers'] = 5.0
-    credit['total_no_endorsements'] = 5.0
+from configuration import * 
 
 
 class DataParser(object):
@@ -54,9 +37,9 @@ class DataParser(object):
     """
     def __init__(self):
         self.config_inst = Config()
-        #self.logger = Logger()
+        
 
-    def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file):
+    def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes):
         # Connect to the database using the specified parameters
         con = mdb.connect(DB_PARAMS['host'], DB_PARAMS['user'], DB_PARAMS['password'])
         cur = con.cursor(mdb.cursors.DictCursor)
@@ -534,11 +517,17 @@ class DataParser(object):
                     for i in range(len(split_data)):
                         if (user_id.strip(),split_data[i].strip()[1:-1]) in endorsement_edges.keys():
                             if split_data[i].strip()[1:-1] in list_instructors:
-                                endorsement_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
+                                endorsement_edges[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.instructor_endorsement_weight
                             else:
-                                endorsement_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
-      
-        write_network_to_file(endorsement_network_out_file,endorsement_edges)
+                                endorsement_edges[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.student_endorsement_weight
+
+        non_zero_endorsement_edges = {}
+        for k,v in endorsement_edges.items():
+            if v != 0:
+                non_zero_endorsement_edges[k] = v
+
+        write_nodes_to_file(endorsement_nodes,non_zero_endorsement_edges, list_instructors)
+        write_network_to_file(endorsement_network_out_file,non_zero_endorsement_edges)
 
         upvote_edges = {}
         for i in range(len(list_user_ids)):
@@ -556,18 +545,30 @@ class DataParser(object):
                     for i in range(len(split_data)):
                         if (user_id.strip(),split_data[i].strip()[1:-1]) in upvote_edges.keys():
                             if split_data[i].strip()[1:-1] in list_instructors:
-                                upvote_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
+                                upvote_edges[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.instructor_endorsement_weight
                             else:
-                                upvote_edges[(split_data[i].strip()[1:-1],user_id.strip())] += 1
-      
-        write_network_to_file(upvotes_network_out_file,upvote_edges)
+                                upvote_edges[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.student_endorsement_weight
 
-        combined_edges = {}
-        for k,v in endorsement_edges.items(): 
-            combined_edges[k] = endorsement_edges[k] + upvote_edges[k]
+        non_zero_upvote_edges = {}
+        for k,v in upvote_edges.items():
+            if v != 0:
+                non_zero_upvote_edges[k] = v
+ 
+        write_nodes_to_file(upvotes_nodes,non_zero_upvote_edges, list_instructors)
+        write_network_to_file(upvotes_network_out_file,non_zero_upvote_edges)
 
-        write_network_to_file(combined_network_out_file,cosmbined_edges)
+        combined_non_zero_edges = {}
+        for k,v in non_zero_endorsement_edges.items():
+            combined_non_zero_edges[k] = non_zero_endorsement_edges[k]
 
+        for k,v in non_zero_upvote_edges.items():
+            if k in combined_non_zero_edges.keys():
+                combined_non_zero_edges[k] += non_zero_upvote_edges[k]
+            else:
+                combined_non_zero_edges[k] = v
+
+        write_nodes_to_file(combined_nodes,combined_non_zero_edges, list_instructors)
+        write_network_to_file(combined_network_out_file,combined_non_zero_edges)
 
         con.commit()
         con.close()
@@ -669,23 +670,36 @@ task = { "input": args.path_dataset, "db_name": args.db_name}
 if not os.path.exists('../stats/'):
     os.makedirs('../stats/')
 
+if not os.path.exists('../figures/'):
+    os.makedirs('../figures/')
+
 endorsement_network_out_file = "../stats/endorsement_network.csv"
 upvotes_network_out_file = "../stats/upvotes_network.csv"
 combined_network_out_file = "../stats/combined_network.csv"
+endorsement_nodes = "../stats/endorsement_nodes.csv"
+upvotes_nodes = "../stats/upvotes_nodes.csv"
+combined_nodes = "../stats/combined_nodes.csv"
 
 parser = DataParser()
-parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file)
-
+parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes)
 
 endorsed_by_network = Graph(endorsement_network_out_file)
 endorsed_by_network.get_page_rank('../stats/endorsement_page_rank.csv')
+endorsed_by_network.draw_graph("../figures/endorsement_network.png")
 logger.info("Created endorsement network")
 
 upvoted_by_network = Graph(upvotes_network_out_file)
 upvoted_by_network.get_page_rank('../stats/upvotes_page_rank.csv')
+upvoted_by_network.draw_graph("../figures/upvote_network.png")
 logger.info("Created upvotes network")
 
 combined_network = Graph(combined_network_out_file)
 combined_network.get_page_rank('../stats/combined_page_rank.csv')
+combined_network.draw_graph("../figures/combined.png")
 logger.info("Created combined network")
+
+faq_generator = FAQGenerator()
+faq_generator.generate_faq_from_questions(task)
+faq_generator.generate_faq_from_notes(task)
+
 
