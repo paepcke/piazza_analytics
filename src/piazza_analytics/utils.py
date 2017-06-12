@@ -53,20 +53,25 @@ def write_nodes_to_file(out_file,user_edges, list_instructors):
     fieldnames = ['user1','user1_role']
     role_dict = {}
     writer = csv.DictWriter(open(out_file,'w'), fieldnames=fieldnames)
-    for key in user_edges:
-        if key[0] in list_instructors:
-            role_dict[key[0]] = "instructor"
-        else:
-            role_dict[key[0]] = "student"
+    user_set = set()
+    for key in user_edges.keys():
+        user_set.add(key[0])
+        user_set.add(key[1])
 
-        if key[1] in list_instructors:
-            role_dict[key[1]] = "instructor"
+    for item in user_set:
+        if item in list_instructors:
+            role_dict[item] = "instructor"
         else:
-            role_dict[key[1]] = "student"
+            role_dict[item] = "student"
+
+        # if key[1] in list_instructors:
+        #     role_dict[key[1]] = "instructor"
+        # else:
+        #     role_dict[key[1]] = "student"
 
     for k, v in role_dict.items():
         writer.writerow({'user1': k,'user1_role': v})
-  
+
 def write_network_to_file(out_file,user_edges):
 
     fieldnames = ['Source','Target','Weight']

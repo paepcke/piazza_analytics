@@ -1,6 +1,6 @@
 import logging
 
-logger_output_file = 'output_logs.log'
+logger_output_file = '../output_logs.log'
 logger = logging.getLogger('piazza_application')
 logging.basicConfig(filename =logger_output_file, filemode= 'w', level=logging.INFO)
 
@@ -31,6 +31,12 @@ class Config(object):
     thresholds['unique_collaborations_on_note'] = 50.0
     thresholds['follow_up_thread_on_note'] = 50.0
 
-
-
-
+    thresholds_for_instructors = {}
+    thresholds_for_instructors['upvotes_on_que'] = 70.0
+    thresholds_for_instructors['upvotes_on_i_answer'] = 70.0
+    thresholds_for_instructors['upvotes_on_i_answer'] = 70.0
+    thresholds_for_instructors['unique_collaborations'] = 70.0
+    thresholds_for_instructors['follow_up_thread'] = 70.0
+    thresholds_for_instructors['upvotes_on_note'] = 70.0
+    thresholds_for_instructors['unique_collaborations_on_note'] = 70.0
+    thresholds_for_instructors['follow_up_thread_on_note'] = 70.0

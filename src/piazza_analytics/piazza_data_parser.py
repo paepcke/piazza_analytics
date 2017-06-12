@@ -28,7 +28,8 @@ from utils import *
 from network_generation import *
 from faq_generator import *
 import re
-from configuration import * 
+from configuration import *
+from clustering import *
 
 
 class DataParser(object):
@@ -37,13 +38,12 @@ class DataParser(object):
     """
     def __init__(self):
         self.config_inst = Config()
-        
+        self.clustering_inst = Clustering()
 
     def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes):
         # Connect to the database using the specified parameters
         con = mdb.connect(DB_PARAMS['host'], DB_PARAMS['user'], DB_PARAMS['password'])
         cur = con.cursor(mdb.cursors.DictCursor)
-
         # Create the database. Overwrites any existing instance.
         q = "DROP DATABASE IF EXISTS {0};".format(task['db_name'])
         try:
@@ -167,7 +167,7 @@ class DataParser(object):
         for row in data:
             list_question_ids.append(row['id'])
 
-        q = "CREATE TABLE questions (id varchar(255) PRIMARY KEY, question_text LONGTEXT, user_id_role varchar(255), no_upvotes_on_question int, i_answer LONGTEXT, s_answer LONGTEXT, no_upvotes_on_i_answer int, no_upvotes_on_s_answer int, no_unique_collaborations int, follow_up_thread LONGTEXT, length_of_follow_up_thread int, folders LONGTEXT, tags LONGTEXT, created DATETIME);"
+        q = "CREATE TABLE questions (id varchar(255) PRIMARY KEY, question_text LONGTEXT, user_id_role varchar(255), no_upvotes_on_question int, i_answer LONGTEXT, s_answer LONGTEXT, no_upvotes_on_i_answer int, no_upvotes_on_s_answer int, no_unique_collaborations int, follow_up_thread LONGTEXT, length_of_follow_up_thread int, folders LONGTEXT, tags LONGTEXT, created DATETIME, subject LONGTEXT);"
 
         cur.execute(q)
 
@@ -176,7 +176,7 @@ class DataParser(object):
         nodes = []
         for i in range(len(list_question_ids)):
             question_id  = list_question_ids[i]
-            cur.execute("""SELECT content, no_upvoters, changelog_user_ids, folders, tags, created from class_content where id = '%s'""" %(question_id))
+            cur.execute("""SELECT content, subject, no_upvoters, changelog_user_ids, folders, tags, created from class_content where id = '%s'""" %(question_id))
             data = cur.fetchall()
             question_content = cleanhtml(self, data[0]['content'])
             no_upvotes_on_que = data[0]['no_upvoters']
@@ -184,6 +184,7 @@ class DataParser(object):
             folders = data[0]['folders']
             tags = data[0]['tags']
             created_timestamp = data[0]['created']
+            subject = data[0]['subject']
 
             cur.execute("""SELECT content, no_endorsements from class_content where type = 'i_answer' and root_id = '%s'""" %(question_id))
             if cur.rowcount != 0:
@@ -234,12 +235,13 @@ class DataParser(object):
                 'length_of_follow_up_thread':follow_up_thread_len,
                 'folders':folders,
                 'tags':tags,
-                'created':created_timestamp
+                'created':created_timestamp,
+                'subject':subject
                 })
 
 
         for node in nodes:
-            q = "INSERT INTO questions VALUES ('{0}','{1}', '{2}',{3}, '{4}', '{5}', {6}, {7}, {8}, '{9}', {10}, '{11}', '{12}', '{13}');".format(
+            q = "INSERT INTO questions VALUES ('{0}','{1}', '{2}',{3}, '{4}', '{5}', {6}, {7}, {8}, '{9}', {10}, '{11}', '{12}', '{13}','{14}');".format(
                 node['id'],
                 node['question_text'],
                 node['user_id_role'],
@@ -253,11 +255,13 @@ class DataParser(object):
                 node['length_of_follow_up_thread'],
                 node['folders'],
                 node['tags'],
-                node['created']
+                node['created'],
+                node['subject']
             )
             cur.execute(q)
 
         logger.info("Created the questions table")
+        # self.clustering_inst.clustering(self,task)
 
         ## Create the notes table
         ##########################
@@ -411,7 +415,7 @@ class DataParser(object):
             cur.execute("""UPDATE users set endorsers = '%s' WHERE id = '%s'""" %(endorsers, user_id))
 
             ''' Extracting the upvoters of a user '''
-            
+
             cur.execute("""SELECT upvoters from class_content where user_id = '%s' and no_upvoters != 0  and upvoters != 'None'""" %(user_id))
             data = cur.fetchall()
             upvoters = ''
@@ -553,7 +557,7 @@ class DataParser(object):
         for k,v in upvote_edges.items():
             if v != 0:
                 non_zero_upvote_edges[k] = v
- 
+
         write_nodes_to_file(upvotes_nodes,non_zero_upvote_edges, list_instructors)
         write_network_to_file(upvotes_network_out_file,non_zero_upvote_edges)
 
@@ -639,67 +643,65 @@ class DataParser(object):
         return child_list
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-p', '--path-dataset', required=True,
-                        help='Path of the folder containing the dataset eg. /Users/abc/Desktop/piazza_downloads/data_folder',
-                        dest='path_dataset',
-                        default=None)
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), formatter_class=argparse.RawTextHelpFormatter)
+#     parser.add_argument('-p', '--path-dataset', required=True,
+#                         help='Path of the folder containing the dataset eg. /Users/abc/Desktop/piazza_downloads/data_folder',
+#                         dest='path_dataset',
+#                         default=None)
 
-    parser.add_argument('-d', '--dbname',
-                        help='Database name',
-                        dest='db_name',
-                        default='piazza_dataset');
+#     parser.add_argument('-d', '--dbname',
+#                         help='Database name',
+#                         dest='db_name',
+#                         default='piazza_dataset');
 
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    if not os.path.isfile(args.path_dataset+"class_content.json") or not os.path.isfile(args.path_dataset+"users.json"):
-        #if the last character in the path is not a forward slash, then we add one to avoid error
-        if args.path_dataset[-1]!= '/':
-            args.path_dataset+= '/'
-        # If there isn't a valid file in the path, we throw an error
-        if not os.path.isfile(args.path_dataset+"class_content.json") or not os.path.isfile(args.path_dataset+"users.json"):
-            print "Unable to find valid class_content.json and/or users.json in this location"
-            exit(1)
+#     if not os.path.isfile(args.path_dataset+"class_content.json") or not os.path.isfile(args.path_dataset+"users.json"):
+#         #if the last character in the path is not a forward slash, then we add one to avoid error
+#         if args.path_dataset[-1]!= '/':
+#             args.path_dataset+= '/'
+#         # If there isn't a valid file in the path, we throw an error
+#         if not os.path.isfile(args.path_dataset+"class_content.json") or not os.path.isfile(args.path_dataset+"users.json"):
+#             print "Unable to find valid class_content.json and/or users.json in this location"
+#             exit(1)
 
 
 #task = { "input" : "/Users/ankita/Desktop/RA/piazza_downloads/data_folder/", "db_name": "cs246_winter2017"}
-task = { "input": args.path_dataset, "db_name": args.db_name}
+# task = { "input": args.path_dataset, "db_name": args.db_name}
 
-if not os.path.exists('../stats/'):
-    os.makedirs('../stats/')
+# if not os.path.exists('../stats/'):
+#     os.makedirs('../stats/')
 
-if not os.path.exists('../figures/'):
-    os.makedirs('../figures/')
+# if not os.path.exists('../figures/'):
+#     os.makedirs('../figures/')
 
-endorsement_network_out_file = "../stats/endorsement_network.csv"
-upvotes_network_out_file = "../stats/upvotes_network.csv"
-combined_network_out_file = "../stats/combined_network.csv"
-endorsement_nodes = "../stats/endorsement_nodes.csv"
-upvotes_nodes = "../stats/upvotes_nodes.csv"
-combined_nodes = "../stats/combined_nodes.csv"
+# endorsement_network_out_file = "../stats/endorsement_network.csv"
+# upvotes_network_out_file = "../stats/upvotes_network.csv"
+# combined_network_out_file = "../stats/combined_network.csv"
+# endorsement_nodes = "../stats/endorsement_nodes.csv"
+# upvotes_nodes = "../stats/upvotes_nodes.csv"
+# combined_nodes = "../stats/combined_nodes.csv"
 
-parser = DataParser()
-parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes)
+# parser = DataParser()
+# parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes)
 
-endorsed_by_network = Graph(endorsement_network_out_file)
-endorsed_by_network.get_page_rank('../stats/endorsement_page_rank.csv')
-endorsed_by_network.draw_graph("../figures/endorsement_network.png")
-logger.info("Created endorsement network")
+# endorsed_by_network = Graph(endorsement_network_out_file)
+# endorsed_by_network.get_page_rank('../stats/endorsement_page_rank.csv')
+# endorsed_by_network.draw_graph("../figures/endorsement_network.png")
+# logger.info("Created endorsement network")
 
-upvoted_by_network = Graph(upvotes_network_out_file)
-upvoted_by_network.get_page_rank('../stats/upvotes_page_rank.csv')
-upvoted_by_network.draw_graph("../figures/upvote_network.png")
-logger.info("Created upvotes network")
+# upvoted_by_network = Graph(upvotes_network_out_file)
+# upvoted_by_network.get_page_rank('../stats/upvotes_page_rank.csv')
+# upvoted_by_network.draw_graph("../figures/upvote_network.png")
+# logger.info("Created upvotes network")
 
-combined_network = Graph(combined_network_out_file)
-combined_network.get_page_rank('../stats/combined_page_rank.csv')
-combined_network.draw_graph("../figures/combined.png")
-logger.info("Created combined network")
+# combined_network = Graph(combined_network_out_file)
+# combined_network.get_page_rank('../stats/combined_page_rank.csv')
+# combined_network.draw_graph("../figures/combined.png")
+# logger.info("Created combined network")
 
-faq_generator = FAQGenerator()
-faq_generator.generate_faq_from_questions(task)
-faq_generator.generate_faq_from_notes(task)
-
-
+# faq_generator = FAQGenerator()
+# faq_generator.generate_faq_from_questions(task)
+# faq_generator.generate_faq_from_notes(task)

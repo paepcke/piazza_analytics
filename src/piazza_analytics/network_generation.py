@@ -19,7 +19,7 @@ class Graph:
         writer = csv.DictWriter(open(page_rank_out_file,'w'), fieldnames=fieldnames)
         for k, v in pr.items():
             writer.writerow({'user1': k,'pagerank':v})
-        
+
         # pr = nx.pagerank_numpy(self.G, alpha=0.9)
         # fieldnames = ['user1','pagerank']
         # writer = csv.DictWriter(open("page_rank_numpy.csv",'w'), fieldnames=fieldnames)
@@ -33,9 +33,9 @@ class Graph:
         # for k, v in pr.items():
         #     writer.writerow({'user1': k,'pagerank':v})
 
-    def draw_graph(self, name):
-        nx.draw(self.G, node_color='c',edge_color='k',pos=nx.spring_layout(self.G,scale=3) )
-        # pos = nx.spring_layout(self.G)
-        # nx.draw_networkx_edges(self.G, pos, edgelist= self.edges, arrows=True)
-        plt.draw()
-        plt.savefig(name)
+    # def draw_graph(self, name):
+    #     nx.draw(self.G, node_color='c',edge_color='k',pos=nx.spring_layout(self.G,scale=3) )
+    #     # pos = nx.spring_layout(self.G)
+    #     # nx.draw_networkx_edges(self.G, pos, edgelist= self.edges, arrows=True)
+    #     plt.draw()
+    #     plt.savefig(name)
