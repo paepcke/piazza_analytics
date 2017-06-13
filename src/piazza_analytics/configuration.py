@@ -30,6 +30,7 @@ class Config(object):
     thresholds['upvotes_on_note'] = 50.0
     thresholds['unique_collaborations_on_note'] = 50.0
     thresholds['follow_up_thread_on_note'] = 50.0
+    thresholds['unique_views'] = 50.0
 
     thresholds_for_instructors = {}
     thresholds_for_instructors['upvotes_on_que'] = 70.0

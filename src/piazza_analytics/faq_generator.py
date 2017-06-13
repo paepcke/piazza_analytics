@@ -52,13 +52,19 @@ class FAQGenerator:
         data = cur.fetchall()
         max_len_follow_up_thread = data[0]['max_length_of_follow_up_thread']
 
-        if max_upvotes_count != None and max_upvotes_count_on_ianswer != None and max_upvotes_count_on_sanswer != None and max_no_unique_collabs != None and max_len_follow_up_thread != None:
-            if max_upvotes_count != 0 and max_upvotes_count_on_ianswer != 0 and max_upvotes_count_on_sanswer != 0 and max_no_unique_collabs != 0 and max_len_follow_up_thread != 0:
+        q = "SELECT max(unique_views) AS max_unique_views from questions;"
+        cur.execute(q)
+        data = cur.fetchall()
+        max_unique_views = data[0]['max_unique_views']
+
+        if max_upvotes_count != None and max_upvotes_count_on_ianswer != None and max_upvotes_count_on_sanswer != None and max_no_unique_collabs != None and max_len_follow_up_thread != None and max_unique_views != None:
+            if max_upvotes_count != 0 and max_upvotes_count_on_ianswer != 0 and max_upvotes_count_on_sanswer != 0 and max_no_unique_collabs != 0 and max_len_follow_up_thread != 0 and max_unique_views != 0:
                 upvotes_on_que = []
                 upvotes_on_i_answer = []
                 upvotes_on_s_answer = []
                 unique_collaborations = []
                 follow_up_thread = []
+                unique_views = []
 
                 for i in range(1, max_upvotes_count+1):
                     q = """SELECT distinct count(*) AS count from questions where no_upvotes_on_question = %d """ %(i)
@@ -117,15 +123,26 @@ class FAQGenerator:
 
                 follow_up_thread = np.array(follow_up_thread)
                 threshold_for_follow_up_thread= np.percentile(follow_up_thread, self.config_inst.thresholds['follow_up_thread'])
-                print "Thresholds for number of upvotes on question, number of upvotes on i_answer, number of votes of student answer, number of unique collaborations, length of follow up thread are:", threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer,threshold_for_upvotes_on_s_answer,threshold_for_unique_collaborations, threshold_for_follow_up_thread
 
-                q = """SELECT distinct count(*) AS count from questions where no_upvotes_on_question >= %d and (no_upvotes_on_i_answer >= %d or no_upvotes_on_s_answer >= %d) and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer, threshold_for_upvotes_on_s_answer, threshold_for_unique_collaborations,threshold_for_follow_up_thread)
+                for i in range(1, max_unique_views+1):
+                    q = """SELECT distinct count(*) AS count from questions where unique_views = %d """ %(i)
+                    cur.execute(q)
+                    data = cur.fetchall()
+                    count = data[0]['count']
+                    unique_views.extend(np.repeat(i,count))
+
+                unique_views = np.array(unique_views)
+                threshold_for_unique_views = np.percentile(unique_views, self.config_inst.thresholds['unique_views'])
+
+                print "Thresholds for number of upvotes on question, number of upvotes on i_answer, number of votes of student answer, number of unique collaborations, length of follow up thread, unique views are:", threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer,threshold_for_upvotes_on_s_answer,threshold_for_unique_collaborations, threshold_for_follow_up_thread, threshold_for_unique_views
+
+                q = """SELECT distinct count(*) AS count from questions where no_upvotes_on_question >= %d and (no_upvotes_on_i_answer >= %d or no_upvotes_on_s_answer >= %d) and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and unique_views >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer, threshold_for_upvotes_on_s_answer, threshold_for_unique_collaborations,threshold_for_follow_up_thread, 3* threshold_for_unique_views)
                 cur.execute(q)
                 data = cur.fetchall()
                 count = data[0]['count']
                 print "Number of questions that qualified for student FAQ:", count
 
-                q = """SELECT question_text, subject, i_answer, s_answer, tags, folders from questions where no_upvotes_on_question >= %d and (no_upvotes_on_i_answer >= %d or no_upvotes_on_s_answer >= %d) and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer, threshold_for_upvotes_on_s_answer, threshold_for_unique_collaborations,threshold_for_follow_up_thread)
+                q = """SELECT question_text, subject, i_answer, s_answer, tags, folders from questions where no_upvotes_on_question >= %d and (no_upvotes_on_i_answer >= %d or no_upvotes_on_s_answer >= %d) and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and unique_views >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer, threshold_for_upvotes_on_s_answer, threshold_for_unique_collaborations,threshold_for_follow_up_thread, 3* threshold_for_unique_views)
 
                 cur.execute(q)
                 data = cur.fetchall()
@@ -170,8 +187,8 @@ class FAQGenerator:
                     f.write(folders)
                     f.write("\n")
                 f.close()
-        print "Clustering the questions that qualified for FAQs"
-        self.clustering_inst.clustering(task, questions_list, titles_list)
+        # print "Clustering the questions that qualified for FAQs"
+        # self.clustering_inst.clustering(task, questions_list, titles_list)
         # topics_extraction(task, questions_list, titles_list)
 
     def generate_faq_from_notes(self, task):
@@ -197,10 +214,16 @@ class FAQGenerator:
         data = cur.fetchall()
         max_len_follow_up_thread = data[0]['max_length_of_follow_up_thread']
 
-        if max_upvotes_count != None and max_no_unique_collabs != None and max_len_follow_up_thread != None and max_upvotes_count != 0 and max_no_unique_collabs != 0 and max_len_follow_up_thread != 0:
+        q = "SELECT max(unique_views) AS max_unique_views from notes;"
+        cur.execute(q)
+        data = cur.fetchall()
+        max_unique_views = data[0]['max_unique_views']
+
+        if max_upvotes_count != None and max_no_unique_collabs != None and max_len_follow_up_thread != None and max_upvotes_count != 0 and max_no_unique_collabs != 0 and max_len_follow_up_thread != 0 and max_unique_views != 0:
             upvotes_on_note = []
             unique_collaborations = []
             follow_up_thread = []
+            unique_views = []
 
             for i in range(1, max_upvotes_count+1):
                 q = """SELECT distinct count(*) AS count from notes where no_upvotes_on_note = %d """ %(i)
@@ -235,18 +258,28 @@ class FAQGenerator:
 
             follow_up_thread = np.array(follow_up_thread)
             threshold_for_follow_up_thread= np.percentile(follow_up_thread, self.config_inst.thresholds['follow_up_thread_on_note'])
-            print "Thresholds for number of upvotes on note, number of unique collaborations, length of follow up thread are:", threshold_for_upvotes_on_note,threshold_for_unique_collaborations, threshold_for_follow_up_thread
+
+            for i in range(1, max_unique_views+1):
+                q = """SELECT distinct count(*) AS count from notes where unique_views = %d """ %(i)
+                cur.execute(q)
+                data = cur.fetchall()
+                count = data[0]['count']
+                unique_views.extend(np.repeat(i,count))
+
+            unique_views = np.array(unique_views)
+            threshold_for_unique_views= np.percentile(unique_views, self.config_inst.thresholds['unique_views'])
+            print "Thresholds for number of upvotes on note, number of unique collaborations, length of follow up thread, unique_views are:", threshold_for_upvotes_on_note,threshold_for_unique_collaborations, threshold_for_follow_up_thread, threshold_for_unique_views
 
             # print "Done with length_of_follow_up_thread"
 
-            q = """SELECT distinct count(*) AS count from notes where no_upvotes_on_note >= %d and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_note, threshold_for_unique_collaborations,threshold_for_follow_up_thread )
+            q = """SELECT distinct count(*) AS count from notes where no_upvotes_on_note >= %d and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and unique_views >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_note, threshold_for_unique_collaborations,threshold_for_follow_up_thread, threshold_for_unique_views)
 
             cur.execute(q)
             data = cur.fetchall()
             count = data[0]['count']
             print "Number of notes that qualified for student FAQ", count
 
-            q = """SELECT notes_text, tags, folders from notes where no_upvotes_on_note >= %d and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_note, threshold_for_unique_collaborations,threshold_for_follow_up_thread)
+            q = """SELECT notes_text, tags, folders from notes where no_upvotes_on_note >= %d and no_unique_collaborations >= %d and length_of_follow_up_thread >= %d and unique_views >= %d and tags NOT LIKE "%%logistics%%" and folders NOT LIKE "%%logistics%%" and folders NOT LIKE "%%office_hours%%" and tags NOT LIKE "%%office_hours%%" """%(threshold_for_upvotes_on_note, threshold_for_unique_collaborations,threshold_for_follow_up_thread, threshold_for_unique_views)
 
             cur.execute(q)
             data = cur.fetchall()

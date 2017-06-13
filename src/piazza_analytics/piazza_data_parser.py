@@ -167,7 +167,7 @@ class DataParser(object):
         for row in data:
             list_question_ids.append(row['id'])
 
-        q = "CREATE TABLE questions (id varchar(255) PRIMARY KEY, question_text LONGTEXT, user_id_role varchar(255), no_upvotes_on_question int, i_answer LONGTEXT, s_answer LONGTEXT, no_upvotes_on_i_answer int, no_upvotes_on_s_answer int, no_unique_collaborations int, follow_up_thread LONGTEXT, length_of_follow_up_thread int, folders LONGTEXT, tags LONGTEXT, created DATETIME, subject LONGTEXT);"
+        q = "CREATE TABLE questions (id varchar(255) PRIMARY KEY, question_text LONGTEXT, user_id_role varchar(255), no_upvotes_on_question int, i_answer LONGTEXT, s_answer LONGTEXT, no_upvotes_on_i_answer int, no_upvotes_on_s_answer int, no_unique_collaborations int, follow_up_thread LONGTEXT, length_of_follow_up_thread int, folders LONGTEXT, tags LONGTEXT, created DATETIME, subject LONGTEXT, unique_views int);"
 
         cur.execute(q)
 
@@ -176,7 +176,7 @@ class DataParser(object):
         nodes = []
         for i in range(len(list_question_ids)):
             question_id  = list_question_ids[i]
-            cur.execute("""SELECT content, subject, no_upvoters, changelog_user_ids, folders, tags, created from class_content where id = '%s'""" %(question_id))
+            cur.execute("""SELECT content, subject, no_upvoters, changelog_user_ids, folders, tags, created, unique_views from class_content where id = '%s'""" %(question_id))
             data = cur.fetchall()
             question_content = cleanhtml(self, data[0]['content'])
             no_upvotes_on_que = data[0]['no_upvoters']
@@ -185,6 +185,7 @@ class DataParser(object):
             tags = data[0]['tags']
             created_timestamp = data[0]['created']
             subject = data[0]['subject']
+            unique_views = data[0]['unique_views']
 
             cur.execute("""SELECT content, no_endorsements from class_content where type = 'i_answer' and root_id = '%s'""" %(question_id))
             if cur.rowcount != 0:
@@ -236,12 +237,13 @@ class DataParser(object):
                 'folders':folders,
                 'tags':tags,
                 'created':created_timestamp,
-                'subject':subject
+                'subject':subject,
+                'unique_views':unique_views
                 })
 
 
         for node in nodes:
-            q = "INSERT INTO questions VALUES ('{0}','{1}', '{2}',{3}, '{4}', '{5}', {6}, {7}, {8}, '{9}', {10}, '{11}', '{12}', '{13}','{14}');".format(
+            q = "INSERT INTO questions VALUES ('{0}','{1}', '{2}',{3}, '{4}', '{5}', {6}, {7}, {8}, '{9}', {10}, '{11}', '{12}', '{13}','{14}', {15});".format(
                 node['id'],
                 node['question_text'],
                 node['user_id_role'],
@@ -256,7 +258,8 @@ class DataParser(object):
                 node['folders'],
                 node['tags'],
                 node['created'],
-                node['subject']
+                node['subject'],
+                node['unique_views']
             )
             cur.execute(q)
 
@@ -277,7 +280,7 @@ class DataParser(object):
         for row in data:
             list_notes_ids.append(row['id'])
 
-        q = "CREATE TABLE notes (id varchar(255) PRIMARY KEY, notes_text LONGTEXT, user_id_role varchar(255), no_upvotes_on_note int, no_unique_collaborations int, follow_up_thread LONGTEXT, length_of_follow_up_thread int, folders LONGTEXT, tags LONGTEXT, created DATETIME);"
+        q = "CREATE TABLE notes (id varchar(255) PRIMARY KEY, notes_text LONGTEXT, user_id_role varchar(255), no_upvotes_on_note int, no_unique_collaborations int, follow_up_thread LONGTEXT, length_of_follow_up_thread int, folders LONGTEXT, tags LONGTEXT, created DATETIME, unique_views int);"
         cur.execute(q)
 
         #Building the notes table from the class_content table
@@ -285,7 +288,7 @@ class DataParser(object):
         nodes = []
         for i in range(1, len(list_notes_ids)):
             notes_id  = list_notes_ids[i]
-            cur.execute("""SELECT content, no_upvoters, changelog_user_ids, folders, tags, created from class_content where id = '%s'""" %(notes_id))
+            cur.execute("""SELECT content, no_upvoters, changelog_user_ids, folders, tags, created, unique_views from class_content where id = '%s'""" %(notes_id))
             data = cur.fetchall()
             notes_content = cleanhtml(self, data[0]['content'])
             no_upvotes_on_note = data[0]['no_upvoters']
@@ -293,6 +296,7 @@ class DataParser(object):
             folders = data[0]['folders']
             tags = data[0]['tags']
             created_timestamp = data[0]['created']
+            unique_views = data[0]['unique_views']
 
             # The string "******************" is used as a delimiter between follow_ups.
             follow_ups = ' '
@@ -319,11 +323,12 @@ class DataParser(object):
                 'length_of_follow_up_thread':follow_up_thread_len,
                 'folders':folders,
                 'tags':tags,
-                'created':created_timestamp
+                'created':created_timestamp,
+                'unique_views':unique_views
                 })
 
         for node in nodes:
-            q = "INSERT INTO notes VALUES ('{0}','{1}', '{2}',{3}, {4}, '{5}', {6}, '{7}','{8}', '{9}');".format(
+            q = "INSERT INTO notes VALUES ('{0}','{1}', '{2}',{3}, {4}, '{5}', {6}, '{7}','{8}', '{9}', {10});".format(
                 node['id'],
                 mdb.escape_string(node['notes_text']),
                 node['user_id_role'],
@@ -333,7 +338,8 @@ class DataParser(object):
                 node['length_of_follow_up_thread'],
                 node['folders'],
                 node['tags'],
-                node['created']
+                node['created'],
+                node['unique_views']
             )
             cur.execute(q)
 
