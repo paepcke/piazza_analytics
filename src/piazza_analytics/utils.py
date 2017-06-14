@@ -1,6 +1,9 @@
 import re
 import json
 import csv
+import numpy as np
+import scipy.stats as stats
+import pylab as pl
 
 """This function is used to clean up the HTML tags from all the questions/ answers/ notes/ follow ups/ feedbacks  text etc.
 """
@@ -78,3 +81,13 @@ def write_network_to_file(out_file,user_edges):
     writer = csv.DictWriter(open(out_file,'w'), fieldnames=fieldnames)
     for key in user_edges:
         writer.writerow({'Source': key[0],'Target': key[1],'Weight':user_edges[key]})
+
+
+def plot_data_distribution(h, file_to_save):
+    h = sorted(h)
+    fit = stats.norm.pdf(h, np.mean(h), np.std(h))
+    pl.figure()
+    pl.plot(h,fit,'-o')
+    pl.hist(h,normed=True)
+    pl.savefig(file_to_save)
+    # pl.show()

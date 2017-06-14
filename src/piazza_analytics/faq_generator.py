@@ -8,6 +8,9 @@ from constants import *
 import numpy as np
 from configuration import *
 from clustering import *
+from utils import *
+import scipy
+
 # from topics_extraction_with_nmf_lda import *
 class FAQGenerator:
 
@@ -56,7 +59,8 @@ class FAQGenerator:
         cur.execute(q)
         data = cur.fetchall()
         max_unique_views = data[0]['max_unique_views']
-
+        faq_stats = self.faq_root_dir + task['course'] + '/' + 'faq_stats_questions' + task['course_dir'] +'.txt'
+        fo = open(faq_stats, 'w')
         if max_upvotes_count != None and max_upvotes_count_on_ianswer != None and max_upvotes_count_on_sanswer != None and max_no_unique_collabs != None and max_len_follow_up_thread != None and max_unique_views != None:
             if max_upvotes_count != 0 and max_upvotes_count_on_ianswer != 0 and max_upvotes_count_on_sanswer != 0 and max_no_unique_collabs != 0 and max_len_follow_up_thread != 0 and max_unique_views != 0:
                 upvotes_on_que = []
@@ -74,6 +78,13 @@ class FAQGenerator:
                     upvotes_on_que.extend(np.repeat(i, count))
 
                 upvotes_on_que = np.array(upvotes_on_que)
+                faq_plot_upvotes_on_que = self.faq_root_dir + task['course'] + '/' + 'faq_upvotes_on_ques' + task['course_dir'] +'.png'
+                plot_data_distribution(upvotes_on_que,faq_plot_upvotes_on_que)
+                fo.write("No_of_upvotes on questions\n")
+                fo.write("Skew\n")
+                fo.write(str(scipy.stats.skew(upvotes_on_que)))
+                fo.write("\nKurtosis\n")
+                fo.write(str(scipy.stats.kurtosis(upvotes_on_que))+"\n")
                 threshold_for_upvotes_on_que = np.percentile(upvotes_on_que, self.config_inst.thresholds['upvotes_on_que'])
 
                 # print "Done with no_upvotes_on_question"
@@ -86,8 +97,14 @@ class FAQGenerator:
                     upvotes_on_i_answer.extend(np.repeat(i,count))
 
                 upvotes_on_i_answer = np.array(upvotes_on_i_answer)
+                faq_plot_upvotes_on_i_answer = self.faq_root_dir + task['course'] + '/' + 'faq_upvotes_on_i_answer' + task['course_dir'] +'.png'
+                plot_data_distribution(upvotes_on_i_answer,faq_plot_upvotes_on_i_answer)
+                fo.write("No_of_upvotes on i answer\n")
+                fo.write("Skew\n")
+                fo.write(str(scipy.stats.skew(upvotes_on_i_answer)))
+                fo.write("\nKurtosis\n")
+                fo.write(str(scipy.stats.kurtosis(upvotes_on_i_answer))+"\n")
                 threshold_for_upvotes_on_i_answer = np.percentile(upvotes_on_i_answer, self.config_inst.thresholds['upvotes_on_i_answer'])
-
                 # print "Done with no_upvotes_on_i_answer"
 
                 for i in range(1, max_upvotes_count_on_sanswer+1):
@@ -98,6 +115,13 @@ class FAQGenerator:
                     upvotes_on_s_answer.extend(np.repeat(i,count))
 
                 upvotes_on_s_answer = np.array(upvotes_on_s_answer)
+                faq_plot_upvotes_on_s_answer = self.faq_root_dir + task['course'] + '/' + 'faq_upvotes_on_s_answer' + task['course_dir'] +'.png'
+                plot_data_distribution(upvotes_on_s_answer,faq_plot_upvotes_on_s_answer)
+                fo.write("No_of_upvotes on s answer\n")
+                fo.write("Skew\n")
+                fo.write(str(scipy.stats.skew(upvotes_on_s_answer)))
+                fo.write("\nKurtosis\n")
+                fo.write(str(scipy.stats.kurtosis(upvotes_on_s_answer))+"\n")
                 threshold_for_upvotes_on_s_answer = np.percentile(upvotes_on_s_answer, self.config_inst.thresholds['upvotes_on_i_answer'])
 
                 # print "Done with no_upvotes_on_s_answer"
@@ -110,6 +134,13 @@ class FAQGenerator:
                     unique_collaborations.extend(np.repeat(i,count))
 
                 unique_collaborations = np.array(unique_collaborations)
+                faq_plot_no_unique_collaborations = self.faq_root_dir + task['course'] + '/' + 'faq_unique_collaborations' + task['course_dir'] +'.png'
+                plot_data_distribution(upvotes_on_s_answer,faq_plot_upvotes_on_s_answer)
+                fo.write("No of unique collaborations\n")
+                fo.write("Skew\n")
+                fo.write(str(scipy.stats.skew(upvotes_on_s_answer)))
+                fo.write("\nKurtosis\n")
+                fo.write(str(scipy.stats.kurtosis(upvotes_on_s_answer))+"\n")
                 threshold_for_unique_collaborations = np.percentile(unique_collaborations, self.config_inst.thresholds['unique_collaborations'])
 
                 # print "Done with no_unique_collaborations"
@@ -122,6 +153,14 @@ class FAQGenerator:
                     follow_up_thread.extend(np.repeat(i,count))
 
                 follow_up_thread = np.array(follow_up_thread)
+                faq_plot_follow_up_thread = self.faq_root_dir + task['course'] + '/' + 'faq_follow_up' + task['course_dir'] +'.png'
+                plot_data_distribution(follow_up_thread,faq_plot_follow_up_thread)
+                fo.write("Length of follow up threads\n")
+                fo.write("Skew\n")
+                fo.write(str(scipy.stats.skew(follow_up_thread)))
+                fo.write("\nKurtosis\n")
+                fo.write(str(scipy.stats.kurtosis(follow_up_thread))+"\n")
+
                 threshold_for_follow_up_thread= np.percentile(follow_up_thread, self.config_inst.thresholds['follow_up_thread'])
 
                 for i in range(1, max_unique_views+1):
@@ -132,6 +171,15 @@ class FAQGenerator:
                     unique_views.extend(np.repeat(i,count))
 
                 unique_views = np.array(unique_views)
+
+                faq_plot_unique_views= self.faq_root_dir + task['course'] + '/' + 'faq_unique_views' + task['course_dir'] +'.png'
+                plot_data_distribution(unique_views,faq_plot_unique_views)
+                fo.write("Unique views\n")
+                fo.write("Skew\n")
+                fo.write(str(scipy.stats.skew(unique_views)))
+                fo.write("\nKurtosis\n")
+                fo.write(str(scipy.stats.kurtosis(unique_views))+"\n")
+
                 threshold_for_unique_views = np.percentile(unique_views, self.config_inst.thresholds['unique_views'])
 
                 print "Thresholds for number of upvotes on question, number of upvotes on i_answer, number of votes of student answer, number of unique collaborations, length of follow up thread, unique views are:", threshold_for_upvotes_on_que,threshold_for_upvotes_on_i_answer,threshold_for_upvotes_on_s_answer,threshold_for_unique_collaborations, threshold_for_follow_up_thread, threshold_for_unique_views
@@ -159,8 +207,7 @@ class FAQGenerator:
                         index_element = title.index("$$")
                     except ValueError:
                         index_element = None
-                    # index_to_filter = title.index("$$")
-                    # print "Index********", index_to_filter
+
                     if index_element != None:
                         title = title[:index_element-1] +title[index_element+1 :]
 
@@ -219,6 +266,8 @@ class FAQGenerator:
         data = cur.fetchall()
         max_unique_views = data[0]['max_unique_views']
 
+        faq_stats = self.faq_root_dir + task['course'] + '/' + 'faq_stats_notes' + task['course_dir'] +'.txt'
+        fo = open(faq_stats, 'w')
         if max_upvotes_count != None and max_no_unique_collabs != None and max_len_follow_up_thread != None and max_upvotes_count != 0 and max_no_unique_collabs != 0 and max_len_follow_up_thread != 0 and max_unique_views != 0:
             upvotes_on_note = []
             unique_collaborations = []
@@ -233,6 +282,14 @@ class FAQGenerator:
                 upvotes_on_note.extend(np.repeat(i, count))
 
             upvotes_on_note = np.array(upvotes_on_note)
+            faq_plot_upvotes_on_note = self.faq_root_dir + task['course'] + '/' + 'faq_upvotes_on_note' + task['course_dir'] +'.png'
+            plot_data_distribution(upvotes_on_note,faq_plot_upvotes_on_note)
+            fo.write("No_of_upvotes on notes\n")
+            fo.write("Skew\n")
+            fo.write(str(scipy.stats.skew(upvotes_on_note)))
+            fo.write("\nKurtosis\n")
+            fo.write(str(scipy.stats.kurtosis(upvotes_on_note))+"\n")
+
             threshold_for_upvotes_on_note = np.percentile(upvotes_on_note, self.config_inst.thresholds['upvotes_on_note'])
 
             # print "Done with no_upvotes_on_note"
@@ -245,6 +302,15 @@ class FAQGenerator:
                 unique_collaborations.extend(np.repeat(i,count))
 
             unique_collaborations = np.array(unique_collaborations)
+
+            faq_plot_unique_collaborations = self.faq_root_dir + task['course'] + '/' + 'faq_unique_collaborations_note' + task['course_dir'] +'.png'
+            plot_data_distribution(unique_collaborations,faq_plot_unique_collaborations)
+            fo.write("Unique collaborations on notes\n")
+            fo.write("Skew\n")
+            fo.write(str(scipy.stats.skew(unique_collaborations)))
+            fo.write("\nKurtosis\n")
+            fo.write(str(scipy.stats.kurtosis(unique_collaborations))+"\n")
+
             threshold_for_unique_collaborations = np.percentile(unique_collaborations, self.config_inst.thresholds['unique_collaborations_on_note'])
 
             # print "Done with no_unique_collaborations"
@@ -257,6 +323,15 @@ class FAQGenerator:
                 follow_up_thread.extend(np.repeat(i,count))
 
             follow_up_thread = np.array(follow_up_thread)
+
+            faq_plot_follow_up_thread = self.faq_root_dir + task['course'] + '/' + 'faq_follow_up_thread_note' + task['course_dir'] +'.png'
+            plot_data_distribution(follow_up_thread,faq_plot_follow_up_thread)
+            fo.write("Follow up thread on notes\n")
+            fo.write("Skew\n")
+            fo.write(str(scipy.stats.skew(follow_up_thread)))
+            fo.write("\nKurtosis\n")
+            fo.write(str(scipy.stats.kurtosis(follow_up_thread))+"\n")
+
             threshold_for_follow_up_thread= np.percentile(follow_up_thread, self.config_inst.thresholds['follow_up_thread_on_note'])
 
             for i in range(1, max_unique_views+1):
@@ -267,6 +342,15 @@ class FAQGenerator:
                 unique_views.extend(np.repeat(i,count))
 
             unique_views = np.array(unique_views)
+
+            faq_plot_unique_views = self.faq_root_dir + task['course'] + '/' + 'faq_unique_views_note' + task['course_dir'] +'.png'
+            plot_data_distribution(unique_views,faq_plot_unique_views)
+            fo.write("unique_views on notes\n")
+            fo.write("Skew\n")
+            fo.write(str(scipy.stats.skew(unique_views)))
+            fo.write("\nKurtosis\n")
+            fo.write(str(scipy.stats.kurtosis(unique_views))+"\n")
+
             threshold_for_unique_views= np.percentile(unique_views, self.config_inst.thresholds['unique_views'])
             print "Thresholds for number of upvotes on note, number of unique collaborations, length of follow up thread, unique_views are:", threshold_for_upvotes_on_note,threshold_for_unique_collaborations, threshold_for_follow_up_thread, threshold_for_unique_views
 
