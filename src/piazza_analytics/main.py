@@ -10,11 +10,9 @@ All constants are defined in 'constants.py'.
 
 import getpass
 import argparse
-# import progressbar
 from piazza_data_parser import *
 
-def main():
-    # print 'Fetching records from sql..'
+def main(generate_network, generate_faq):
     if not os.path.exists('../stats'):
         os.makedirs('../stats')
 
@@ -44,20 +42,6 @@ def main():
                 if not os.path.exists('../figures/'):
                     os.makedirs('../figures/')
 
-    # bar = progressbar.ProgressBar(maxval=len(tasks), \
-    # widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-    # bar.start()
-    # i=0
-    # for task in tasks:
-    #     bar.update(i+1)
-    #     i+=1
-    #     fetch(task)
-    # bar.finish()
-
-    # task = { "input": args.path_dataset, "db_name": args.db_name}
-
-    # if not os.path.exists('../stats/'):
-    #     os.makedirs('../stats/')
 
     for task in tasks:
         print "Starting phase 1..."
@@ -65,7 +49,7 @@ def main():
         print "Setting up the schema..."
         stats_path = "../stats/"+ task['course']+ '/' +task['course_dir']
         figures_path = "../figures/"+ task['course']+ '/' +task['course_dir']
-        # print"DB", task['course']
+
         endorsement_network_out_file =  stats_path +"endorsement_network.csv"
         upvotes_network_out_file = stats_path +"upvotes_network.csv"
         combined_network_out_file = stats_path +"combined_network.csv"
@@ -73,77 +57,45 @@ def main():
         upvotes_nodes = stats_path+"upvotes_nodes.csv"
         combined_nodes = stats_path+"combined_nodes.csv"
 
-        # print endorsement_network_out_file
-        # upvotes_network_out_file = "../stats/upvotes_network.csv"
-        # combined_network_out_file = "../stats/combined_network.csv"
-        # endorsement_nodes = "../stats/endorsement_nodes.csv"
-        # upvotes_nodes = "../stats/upvotes_nodes.csv"
-        # combined_nodes = "../stats/combined_nodes.csv"
-
         parser = DataParser()
         parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes)
 
-        print "Starting phase 2..."
-        print "Generating the network..."
-        endorsed_by_network = Graph(endorsement_network_out_file)
+        if generate_network:
+            print "Generating the network..."
+            endorsed_by_network = Graph(endorsement_network_out_file)
 
-        path = stats_path + "endorsement_page_rank.csv"
-        endorsed_by_network.get_page_rank(path)
+            path = stats_path + "endorsement_page_rank.csv"
+            endorsed_by_network.get_page_rank(path)
 
-        path = figures_path + "endorsement_network.png"
-        # endorsed_by_network.draw_graph(path)
-        logger.info("Created endorsement network")
+            path = figures_path + "endorsement_network.png"
+            # endorsed_by_network.draw_graph(path)
+            logger.info("Created endorsement network")
 
-        upvoted_by_network = Graph(upvotes_network_out_file)
-        path = stats_path + "upvotes_page_rank.csv"
-        upvoted_by_network.get_page_rank(path)
-        path = figures_path + "upvote_network.png"
-        # upvoted_by_network.draw_graph(path)
-        logger.info("Created upvotes network")
+            upvoted_by_network = Graph(upvotes_network_out_file)
+            path = stats_path + "upvotes_page_rank.csv"
+            upvoted_by_network.get_page_rank(path)
+            path = figures_path + "upvote_network.png"
+            # upvoted_by_network.draw_graph(path)
+            logger.info("Created upvotes network")
 
-        combined_network = Graph(combined_network_out_file)
-        path = stats_path + "combined_page_rank.csv"
-        combined_network.get_page_rank(path)
-        path =  figures_path + "combined_network.png"
-        # combined_network.draw_graph(path)
-        logger.info("Created combined network")
+            combined_network = Graph(combined_network_out_file)
+            path = stats_path + "combined_page_rank.csv"
+            combined_network.get_page_rank(path)
+            path =  figures_path + "combined_network.png"
+            # combined_network.draw_graph(path)
+            logger.info("Created combined network")
 
-        print "Starting phase 3..."
-        print "Generating FAQs"
-        faq_generator = FAQGenerator()
-        faq_generator.generate_faq_from_questions(task)
-        faq_generator.generate_faq_from_notes(task)
+        if generate_faq:
+            print "Generating FAQs"
+            faq_generator = FAQGenerator()
+            faq_generator.generate_faq_from_questions(task)
+            faq_generator.generate_faq_from_notes(task)
 
-        faq_generator.generate_faq_from_questions_for_instructors(task)
-        faq_generator.generate_faq_from_notes_for_instructors(task)
-
-
-    # print 'Creating Network-----------------------------------------------'
-    # for course in COURSES:
-    #     print course
-    #     if edgelist:
-    #         path = DATA_DIRECTORY+course
-
-    #         for root, dirs, files in os.walk(path):
-    #             for course_dir in sorted(dirs,key=lambda d:d[-2:]):
-    #                 print course_dir
-    #                 convertToEdgeList(root+'/'+course_dir,course+course_dir,True)
-
-    #     if getStats:
-    #             print 'Calculating statistics for',course
-    #             stats(course,divide=True,all_stats=True)
-
-
-# if __name__ == '__main__':
-#   pwd = DB_PARAMS.get('password', None)
-#   if pwd is None:
-#     DB_PARAMS['password'] = ''
-#   elif len(DB_PARAMS['password']) == 0:
-#     DB_PARAMS['password'] = getpass.getpass('MySQL password for user {0}:'.format(DB_PARAMS['user']))
-#   main(edgelist=False, getStats=False, changePoint = True)
+            faq_generator.generate_faq_from_questions_for_instructors(task)
+            faq_generator.generate_faq_from_notes_for_instructors(task)
 
 if __name__ == '__main__':
-    main()
+    main(generate_network= True, generate_faq = True)
 
     #This part will be used for command line arguments to be used:
     # parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), formatter_class=argparse.RawTextHelpFormatter)
