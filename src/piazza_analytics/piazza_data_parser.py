@@ -30,7 +30,7 @@ from network_generation import *
 from faq_generator import *
 import re
 from configuration import *
-from clustering import *
+# from clustering import *
 import networkx as nx
 from networkx.algorithms import bipartite
 
@@ -40,7 +40,7 @@ class DataParser(object):
     """
     def __init__(self):
         self.config_inst = Config()
-        self.clustering_inst = Clustering()
+        # self.clustering_inst = Clustering()
 
     def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes, endorsement_network_filtered_out_file, upvotes_network_filtered_out_file, combined_network_filtered_out_file, interaction_nodes, interaction_network_out_file, interaction_nodes_flipped, interaction_network_flipped_out_file, study_group_out_file):
         # Connect to the database using the specified parameters

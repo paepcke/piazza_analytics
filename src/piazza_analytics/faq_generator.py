@@ -7,7 +7,7 @@ import MySQLdb as mdb
 from constants import *
 import numpy as np
 from configuration import *
-from clustering import *
+# from clustering import *
 from utils import *
 import scipy
 
@@ -17,7 +17,7 @@ class FAQGenerator:
     def __init__(self):
         self.config_inst = Config()
         self.faq_root_dir = "../FAQ/"
-        self.clustering_inst = Clustering()
+        # self.clustering_inst = Clustering()
         #self.logger = Logger()
 
     def generate_faq_from_questions(self, task):
