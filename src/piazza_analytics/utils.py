@@ -29,14 +29,14 @@ def identify_role(self, task):
     instructors = set()
     students = set()
 
-    for record in parsed_class:
-        if 'change_log' in record:
-            for log in record['change_log']:
-                types.add(log['type'])
-                if log['type']=='i_answer' or log['type'] == 'i_answer_update':
-                    instructors.add(log['uid'])
-                if log['type']=='s_answer' or log['type'] == 's_answer_update':
-                    students.add(log['uid'])
+    # for record in parsed_class:
+    #     if 'change_log' in record:
+    #         for log in record['change_log']:
+    #             types.add(log['type'])
+    #             if log['type']=='i_answer' or log['type'] == 'i_answer_update':
+    #                 instructors.add(log['uid'])
+    #             if log['type']=='s_answer' or log['type'] == 's_answer_update':
+    #                 students.add(log['uid'])
     return set(instructors), set(students)
 
 
@@ -67,13 +67,9 @@ def write_nodes_to_file(out_file,user_edges, list_instructors):
         else:
             role_dict[item] = "student"
 
-        # if key[1] in list_instructors:
-        #     role_dict[key[1]] = "instructor"
-        # else:
-        #     role_dict[key[1]] = "student"
-
     for k, v in role_dict.items():
         writer.writerow({'user1': k,'user1_role': v})
+
 
 def write_network_to_file(out_file,user_edges):
 
@@ -83,6 +79,24 @@ def write_network_to_file(out_file,user_edges):
         writer.writerow({'Source': key[0],'Target': key[1],'Weight':user_edges[key]})
 
 
+def get_min_edit_distance(str1, str2, m, n):
+    dp = [[0 for x in range(n+1)] for x in range(m+1)]
+    for i in range(m+1):
+        for j in range(n+1):
+            if i == 0:
+                dp[i][j] = j
+            elif j == 0:
+                dp[i][j] = i
+            elif str1[i-1] == str2[j-1]:
+                dp[i][j] = dp[i-1][j-1]
+            else:
+                dp[i][j] = 1 + min(dp[i][j-1], # Insert
+                                   dp[i-1][j], # Remove
+                                   dp[i-1][j-1])# Replace
+
+    return dp[m][n]
+
+
 def plot_data_distribution(h, file_to_save):
     h = sorted(h)
     fit = stats.norm.pdf(h, np.mean(h), np.std(h))
@@ -90,4 +104,3 @@ def plot_data_distribution(h, file_to_save):
     pl.plot(h,fit,'-o')
     pl.hist(h,normed=True)
     pl.savefig(file_to_save)
-    # pl.show()

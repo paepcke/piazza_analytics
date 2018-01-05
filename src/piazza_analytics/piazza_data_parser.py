@@ -1,3 +1,4 @@
+
 '''
 Takes paths containing users.json and class_content.json for class exports, and generates corresponding MySQL databases containing forum post data.
 Note that not all post metadata is created in the databases. However, the essential requirements for analytics are taken care of.
@@ -30,7 +31,8 @@ from faq_generator import *
 import re
 from configuration import *
 from clustering import *
-
+import networkx as nx
+from networkx.algorithms import bipartite
 
 class DataParser(object):
 
@@ -40,7 +42,7 @@ class DataParser(object):
         self.config_inst = Config()
         self.clustering_inst = Clustering()
 
-    def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes):
+    def fetch(self, task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes, endorsement_network_filtered_out_file, upvotes_network_filtered_out_file, combined_network_filtered_out_file, interaction_nodes, interaction_network_out_file, interaction_nodes_flipped, interaction_network_flipped_out_file, study_group_out_file):
         # Connect to the database using the specified parameters
         con = mdb.connect(DB_PARAMS['host'], DB_PARAMS['user'], DB_PARAMS['password'])
         cur = con.cursor(mdb.cursors.DictCursor)
@@ -73,54 +75,53 @@ class DataParser(object):
         f.close()
 
         def parse_posts(x):
-                    if 'created' in x.keys():
-                        tc = x['created']
-                    else:
-                        tc = '2000-01-10T00:00:00Z'
-                    dt = datetime(int(tc[0:4]), int(tc[5:7]), int(tc[8:10]), int(tc[11:13]), int(tc[14:16]), int(tc[17:19]))
-                    nodes = []
+            if 'created' in x.keys():
+                tc = x['created']
+            else:
+                tc = '2000-01-10T00:00:00Z'
+            dt = datetime(int(tc[0:4]), int(tc[5:7]), int(tc[8:10]), int(tc[11:13]), int(tc[14:16]), int(tc[17:19]))
+            nodes = []
 
-                    if 'history' in x.keys():
-                        nodes .append({
-                            'id': x['id'],
-                            'type': x['type'],
-                            'created': dt,
-                            'user_id': x['history'][0]['uid'] if 'uid' in x['history'][0].keys() else 'None',
-                            'subject': x['history'][0]['subject'],
-                            'content': x['history'][0]['content'],
-                            'status': x['status'] if 'status' in x.keys() else ' ',
-                            'nr': x['nr'],
-                            'no_answer_followup': x['no_answer_followup'],
-                            'tags': json.dumps(x['tags']),
-                            'is_root': 1,
-                            'changelog_user_ids': json.dumps([c['uid'] if 'uid' in c.keys() else 'None' for c in x['change_log']]),
-                            'unique_views': x['unique_views'],
-                            'no_upvotes_defunct': x['no_upvotes'] if 'no_upvotes' in x else 0,
-                            'no_endorsements':len(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else 0,
-                            'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x and len(x['tag_endorse_arr']) > 0 else None,
-                            'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x and len(x['tag_good_arr']) > 0 else None,
-                            'folders':json.dumps(x['folders']) if 'folders' in x else ' ',
-                            'no_upvoters':len(x['tag_good_arr']) if 'tag_good_arr' in x else 0,
-                            'user_id_role': "not available",
-                            'root_id': x['id']
-                        })
-                        if 'tag_endorse_arr' in x:
-                            print len(x['tag_endorse_arr'])
-                    else:
-                        logger.info("Not expecting any posts without 'history' in keys")
+            if 'history' in x.keys():
+                nodes .append({
+                    'id': x['id'],
+                    'type': x['type'],
+                    'created': dt,
+                    'user_id': x['history'][0]['uid'] if 'uid' in x['history'][0].keys() else 'None',
+                    'subject': x['history'][0]['subject'],
+                    'content': x['history'][0]['content'],
+                    'status': x['status'] if 'status' in x.keys() else ' ',
+                    'nr': x['nr'],
+                    'no_answer_followup': x['no_answer_followup'],
+                    'tags': json.dumps(x['tags']),
+                    'is_root': 1,
+                    'changelog_user_ids': json.dumps([c['uid'] if 'uid' in c.keys() else 'None' for c in x['change_log']]),
+                    'unique_views': x['unique_views'],
+                    'no_upvotes_defunct': x['no_upvotes'] if 'no_upvotes' in x else 0,
+                    'no_endorsements':len(x['tag_endorse_arr']) if 'tag_endorse_arr' in x else 0,
+                    'endorsers':json.dumps(x['tag_endorse_arr']) if 'tag_endorse_arr' in x and len(x['tag_endorse_arr']) > 0 else None,
+                    'upvoters':json.dumps(x['tag_good_arr']) if 'tag_good_arr' in x and len(x['tag_good_arr']) > 0 else None,
+                    'folders':json.dumps(x['folders']) if 'folders' in x else ' ',
+                    'no_upvoters':len(x['tag_good_arr']) if 'tag_good_arr' in x else 0,
+                    'user_id_role': "not available",
+                    'root_id': x['id']
+                })
 
-                    if 'folders' in x.keys():
-                        folders = json.dumps(x['folders'])
-                    else:
-                        folders = 'None'
-                    tags = json.dumps(x['tags'])
+            else:
+                logger.info("Not expecting any posts without 'history' in keys")
 
-                    if 'children' in x.keys():
-                        for c in x['children']:
-                            ch = self.ChildTreeToList(c,x['nr'], x['unique_views'], x['id'], folders, tags)
-                            if ch:
-                                nodes.extend(ch)
-                    return nodes
+            if 'folders' in x.keys():
+                folders = json.dumps(x['folders'])
+            else:
+                folders = 'None'
+            tags = json.dumps(x['tags'])
+
+            if 'children' in x.keys():
+                for c in x['children']:
+                    ch = self.ChildTreeToList(c,x['nr'], x['unique_views'], x['id'], folders, tags)
+                    if ch:
+                        nodes.extend(ch)
+            return nodes
 
         for x in data:
             nodes = parse_posts(x)
@@ -350,7 +351,7 @@ class DataParser(object):
 
         logger.info("Creating the users table")
 
-        q = "CREATE TABLE users (id varchar(255) PRIMARY KEY, answers int, asks int, posts int, views int, days_online int, no_endorsed_answers int, total_no_endorsements int, role varchar(255), contribution int, endorsers TEXT, upvoters TEXT);"
+        q = "CREATE TABLE users (id varchar(255) PRIMARY KEY, answers int, asks int, posts int, views int, days_online int, no_endorsed_answers int, total_no_endorsements int, role varchar(255), contribution FLOAT, endorsers TEXT, upvoters TEXT, name varchar(255), email varchar(255), page_rank FLOAT, centrality FLOAT);"
         cur.execute(q)
 
         f = open(task['input'] + 'users.json', 'rb')
@@ -358,7 +359,7 @@ class DataParser(object):
         f.close()
 
         for x in parsed_user_data:
-            q = "INSERT INTO users (id, answers, asks, posts, views, days_online, no_endorsed_answers, total_no_endorsements,role, contribution, endorsers, upvoters) VALUES ('{0}',{1},{2},{3},{4},{5},{6},{7}, '{8}', {9}, '{10}', '{11}');".format(x['user_id'], x['answers'], x['asks'], x['posts'], x['views'], x['days'], 0, 0, 'not available', 0, None, None)
+            q = "INSERT INTO users (id, answers, asks, posts, views, days_online, no_endorsed_answers, total_no_endorsements,role, contribution, endorsers, upvoters, name, email, page_rank, centrality) VALUES ('{0}',{1},{2},{3},{4},{5},{6},{7}, '{8}', {9}, '{10}', '{11}', '{12}', '{13}', {14}, {15});".format(x['user_id'], x['answers'], x['asks'], x['posts'], x['views'], x['days'], 0, 0, 'not available', 0.0, None, None, cleanhtml(self, x['name'].replace("\\", "%").replace("'", "\\'").encode('utf-8')), x['email'].replace("\\", "%").replace("'", "\\'").encode('utf-8'), 0.0, 0.0)
             cur.execute(q)
 
         list_user_ids = []
@@ -394,7 +395,7 @@ class DataParser(object):
 
             '''Adding up the contributions by each of the factor to get the total credit for the user.
             '''
-            total_credit = self.config_inst.credit['questions_asked'] * asks + \
+            partial_credit = self.config_inst.credit['questions_asked'] * asks + \
                            self.config_inst.credit['questions_answered'] * answers + \
                            self.config_inst.credit['total_posts'] * posts + \
                            self.config_inst.credit['total_views'] * views + \
@@ -402,7 +403,7 @@ class DataParser(object):
                            self.config_inst.credit['no_endorsed_answers'] * no_endorsed_answers + \
                            self.config_inst.credit['total_no_endorsements'] * total_no_endorsements
 
-            cur.execute("""UPDATE users set contribution = %d WHERE id = '%s'""" %(total_credit,user_id))
+            cur.execute("""UPDATE users set contribution = %d WHERE id = '%s'""" %(partial_credit,user_id))
 
             ''' Extracting the endorsers of a user '''
 
@@ -510,7 +511,7 @@ class DataParser(object):
 
         logger.info("Created the users table")
 
-        # Initialzing endorsements
+        # Initialzing complete endorsement network 
         endorsement_edges = {}
         for i in range(len(list_user_ids)):
             for j in range(len(list_user_ids)):
@@ -539,6 +540,43 @@ class DataParser(object):
         write_nodes_to_file(endorsement_nodes,non_zero_endorsement_edges, list_instructors)
         write_network_to_file(endorsement_network_out_file,non_zero_endorsement_edges)
 
+
+        # Initialzing endorsements without edges of instructors being endorsed
+        endorsement_edges_filtered = {}
+        for i in range(len(list_user_ids)):
+            for j in range(len(list_user_ids)):
+                if list_user_ids[j] not in list_instructors:
+                    endorsement_edges_filtered[(list_user_ids[i].strip(),list_user_ids[j].strip())] = 0
+                if list_user_ids[i] not in list_instructors:
+                    endorsement_edges_filtered[(list_user_ids[j].strip(),list_user_ids[i].strip())] = 0
+
+        list_students = set()
+        list_students = set(list_user_ids) - set(list_instructors)
+        list_students = list(list_students)
+
+        for i in range(len(list_students)):
+            user_id = list_students[i]
+            cur.execute("""SELECT endorsers from users where id = '%s' """ %(user_id))
+            data = cur.fetchall()
+            if cur.rowcount != 0:
+                if data[0]['endorsers'] != 'None':
+                    split_data = data[0]['endorsers'].split(",")
+                    for i in range(len(split_data)):
+                        if (user_id.strip(),split_data[i].strip()[1:-1]) in endorsement_edges_filtered.keys():
+                            if split_data[i].strip()[1:-1] in list_instructors:
+                                endorsement_edges_filtered[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.instructor_endorsement_weight
+                            else:
+                                endorsement_edges_filtered[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.student_endorsement_weight
+
+        non_zero_endorsement_edges_filtered = {}
+        for k,v in endorsement_edges_filtered.items():
+            if v != 0:
+                non_zero_endorsement_edges_filtered[k] = v
+
+        write_network_to_file(endorsement_network_filtered_out_file,non_zero_endorsement_edges_filtered)
+
+
+        # Initializing complete upvote network
         upvote_edges = {}
         for i in range(len(list_user_ids)):
             for j in range(len(list_user_ids)):
@@ -567,6 +605,41 @@ class DataParser(object):
         write_nodes_to_file(upvotes_nodes,non_zero_upvote_edges, list_instructors)
         write_network_to_file(upvotes_network_out_file,non_zero_upvote_edges)
 
+        # Initialzing upvotes network without edges of instructors being upvoted
+        upvote_edges_filtered = {}
+        for i in range(len(list_user_ids)):
+            for j in range(len(list_user_ids)):
+                if list_user_ids[j] not in list_instructors:
+                    upvote_edges_filtered[(list_user_ids[i].strip(),list_user_ids[j].strip())] = 0
+                if list_user_ids[i] not in list_instructors:
+                    upvote_edges_filtered[(list_user_ids[j].strip(),list_user_ids[i].strip())] = 0
+
+        list_students = set()
+        list_students = set(list_user_ids) - set(list_instructors)
+        list_students = list(list_students)
+
+        for i in range(len(list_students)):
+            user_id = list_students[i]
+            cur.execute("""SELECT upvoters from users where id = '%s' """ %(user_id))
+            data = cur.fetchall()
+            if cur.rowcount != 0:
+                if data[0]['upvoters'] != 'None':
+                    split_data = data[0]['upvoters'].split(",")
+                    for i in range(len(split_data)):
+                        if (user_id.strip(),split_data[i].strip()[1:-1]) in upvote_edges_filtered.keys():
+                            if split_data[i].strip()[1:-1] in list_instructors:
+                                upvote_edges_filtered[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.instructor_endorsement_weight
+                            else:
+                                upvote_edges_filtered[(split_data[i].strip()[1:-1],user_id.strip())] += self.config_inst.student_endorsement_weight
+
+        non_zero_upvote_edges_filtered = {}
+        for k,v in upvote_edges_filtered.items():
+            if v != 0:
+                non_zero_upvote_edges_filtered[k] = v
+
+        write_network_to_file(upvotes_network_filtered_out_file,non_zero_upvote_edges_filtered)
+
+        # Initializing complete combined network
         combined_non_zero_edges = {}
         for k,v in non_zero_endorsement_edges.items():
             combined_non_zero_edges[k] = non_zero_endorsement_edges[k]
@@ -579,6 +652,133 @@ class DataParser(object):
 
         write_nodes_to_file(combined_nodes,combined_non_zero_edges, list_instructors)
         write_network_to_file(combined_network_out_file,combined_non_zero_edges)
+
+        # Initializing combined network excluding edges of instructors being upvoted / endorsed
+        combined_non_zero_edges_filtered = {}
+        for k,v in non_zero_endorsement_edges_filtered.items():
+            combined_non_zero_edges_filtered[k] = non_zero_endorsement_edges_filtered[k]
+
+        for k,v in non_zero_upvote_edges_filtered.items():
+            if k in combined_non_zero_edges_filtered.keys():
+                combined_non_zero_edges_filtered[k] += non_zero_upvote_edges_filtered[k]
+            else:
+                combined_non_zero_edges_filtered[k] = v
+
+        combined_network_nx = nx.Graph()
+        user_set = set()
+        edges_set = set()
+        for k in combined_non_zero_edges_filtered.keys():
+            edges_set.add(k)
+        
+        for key in combined_non_zero_edges_filtered.keys():
+            user_set.add(key[0])
+            user_set.add(key[1])
+
+        combined_network_nx.add_nodes_from(user_set)
+        combined_network_nx.add_edges_from(edges_set)
+
+        page_rank = nx.pagerank(combined_network_nx)
+
+        for k, v in page_rank.iteritems():
+            cur.execute("""UPDATE users set page_rank = %f WHERE id = '%s'""" %(v, k))
+
+        write_network_to_file(combined_network_filtered_out_file,combined_non_zero_edges_filtered)
+
+
+        # Generating the network of students who responded to each other's questions (or student's interaction network)
+
+        interaction_network_temp = {}
+        interaction_network = {}
+        interaction_network_flipped = {}
+
+        for i in range(len(list_students)):
+            user_id = list_students[i]
+            cur.execute("""SELECT id from class_content where type = 'question' and user_id = '%s' """%(user_id))
+            questions_asked = []
+            responders = []
+            data = cur.fetchall()
+            for i in range(len(data)):
+                questions_asked.append(data[i]['id'])
+
+            for i in range(len(questions_asked)):
+                cur.execute("""SELECT user_id from class_content where root_id = '%s' and (type = 's_answer' or type = 'followup') """ %(questions_asked[i]))
+                if cur.rowcount != 0:
+                    data = cur.fetchall()
+                    for i in range(len(data)):
+                        responders.append(data[i]['user_id'])
+
+            interaction_network_temp[list_students[i]] = responders
+
+            for k,v in interaction_network_temp.items():
+                for m in range(len(v)):
+                    if (k.strip(), v[m].strip()) not in interaction_network.keys():
+                        interaction_network[(k.strip(), v[m].strip())] = 0
+
+                    interaction_network[(k.strip(), v[m].strip())] += 1
+
+            for k, v in interaction_network_temp.items():
+                for m in range(len(v)):
+                    if (v[m].strip(), k.strip()) not in interaction_network_flipped.keys():
+                            interaction_network_flipped[(v[m].strip(), k.strip())] = 0
+                    interaction_network_flipped[(v[m].strip(), k.strip())] += 1
+
+
+        interaction_network_nx = nx.Graph()
+        user_set = set()
+        edges_set = set()
+        for k in interaction_network.keys():
+            edges_set.add(k)
+        
+        for key in interaction_network.keys():
+            user_set.add(key[0])
+            user_set.add(key[1])
+
+        interaction_network_nx.add_nodes_from(user_set)
+        interaction_network_nx.add_edges_from(edges_set)
+
+        # preds = nx.adamic_adar_index(interaction_network_nx, edges_set)
+
+        # link_pred_dict = {}
+        # for u, v, p in preds:
+        #     if u not in link_pred_dict.keys():
+        #         link_pred_dict[u] = []
+        #     link_pred_dict[u].append([v,p])
+
+        # fieldnames = ['user_id', 'user_id1', 'score']
+        # writer = csv.DictWriter(open(study_group_out_file,'w'),fieldnames=fieldnames)
+        # for i in range(len(list_user_ids)):
+        #     if list_user_ids[i] in link_pred_dict.keys():
+        #         v = link_pred_dict[list_user_ids[i]][0]
+        #         p = link_pred_dict[list_user_ids[i]][1]
+        #         if v != None and p != 0:         
+        #             writer.writerow({'user_id': list_user_ids[i],'user_id1': link_pred_dict[list_user_ids[i]][0], 'score':link_pred_dict[list_user_ids[i]][1]})
+
+        degree_centrality = nx.degree_centrality(interaction_network_nx)
+        closeness_centrality = nx.closeness_centrality(interaction_network_nx)
+        betweeness_centrality = nx.betweenness_centrality(interaction_network_nx)
+
+        for k,v in degree_centrality.iteritems():
+            centrality = degree_centrality[k] + closeness_centrality[k] +  betweeness_centrality[k]
+            cur.execute("""UPDATE users set centrality = %f WHERE id = '%s'""" %(centrality, k))
+
+        for i in range(len(list_user_ids)):
+            cur.execute("""SELECT contribution from users where id = '%s'""" %(list_user_ids[i]))
+            data = cur.fetchall()
+            contribution = data[0]['contribution']
+            cur.execute("""SELECT centrality from users where id = '%s'""" %(list_user_ids[i]))
+            data = cur.fetchall()
+            centrality = self.config_inst.credit['centrality'] * data[0]['centrality']
+            cur.execute("""SELECT page_rank from users where id = '%s'""" %(list_user_ids[i]))
+            data = cur.fetchall()
+            page_rank = self.config_inst.credit['page_rank'] * data[0]['page_rank']
+            contribution = contribution + centrality + page_rank
+
+            cur.execute("""UPDATE users set contribution = %f where id = '%s'""" %(contribution, list_user_ids[i]))
+            
+        write_nodes_to_file(interaction_nodes,interaction_network, list_instructors)
+        write_network_to_file(interaction_network_out_file,interaction_network)
+        write_nodes_to_file(interaction_nodes_flipped,interaction_network_flipped, list_instructors)
+        write_network_to_file(interaction_network_flipped_out_file,interaction_network_flipped)
 
         con.commit()
         con.close()

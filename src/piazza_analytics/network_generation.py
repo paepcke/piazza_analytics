@@ -17,8 +17,17 @@ class Graph:
         pr = nx.pagerank(self.G, alpha=0.9)
         fieldnames = ['user1','pagerank']
         writer = csv.DictWriter(open(page_rank_out_file,'w'), fieldnames=fieldnames)
+        page_rank = {}
+        for k,v in pr.items():
+            if v not in page_rank.keys():
+                page_rank[v] = 0
+            page_rank[v] += 1
+
         for k, v in pr.items():
+            if page_rank[v] > 50:
+                continue
             writer.writerow({'user1': k,'pagerank':v})
+            # writer.writerow({'user1': k,'pagerank':v})
 
         # pr = nx.pagerank_numpy(self.G, alpha=0.9)
         # fieldnames = ['user1','pagerank']

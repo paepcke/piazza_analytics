@@ -198,6 +198,7 @@ class FAQGenerator:
                 f = open(faq_file, 'w')
                 questions_list = []
                 titles_list = []
+                count = 1
                 for i in range(len(data)):
                     question = data[i]['question_text']
                     refined_question = question.decode("utf8")
@@ -221,18 +222,20 @@ class FAQGenerator:
                         answer = 'None'
                     tags = data[i]['tags']
                     folders = data[i]['folders']
-                    f.write("********************Question******************\n")
+                    f.write(str(count))
+                    count+=1
+                    f.write(". ********************Question******************\n")
                     f.write(question)
                     f.write("\n")
                     f.write("********************Response******************\n")
                     f.write(answer)
                     f.write("\n")
-                    f.write("********************Tags******************\n")
-                    f.write(tags)
-                    f.write("\n")
-                    f.write("********************Folders******************\n")
-                    f.write(folders)
-                    f.write("\n")
+                    # f.write("********************Tags******************\n")
+                    # f.write(tags)
+                    # f.write("\n")
+                    # f.write("********************Folders******************\n")
+                    # f.write(folders)
+                    # f.write("\n")
                 f.close()
         # print "Clustering the questions that qualified for FAQs"
         # self.clustering_inst.clustering(task, questions_list, titles_list)
@@ -370,20 +373,22 @@ class FAQGenerator:
             faq_file = self.faq_root_dir + task['course'] + '/' + 'faq_notes_' + task['course_dir'] +'.txt'
             f = open(faq_file, 'w')
             # f = open('faq_notes.txt', 'w')
-
+            count_notes = 1
             for i in range(len(data)):
                 note = data[i]['notes_text']
                 tags = data[i]['tags']
                 folders = data[i]['folders']
+                f.write(str(count_notes))
+                count_notes+=1
                 f.write("********************Note******************\n")
                 f.write(note)
                 f.write("\n")
-                f.write("********************Tags******************\n")
-                f.write(tags)
-                f.write("\n")
-                f.write("********************Folders******************\n")
-                f.write(folders)
-                f.write("\n")
+                # f.write("********************Tags******************\n")
+                # f.write(tags)
+                # f.write("\n")
+                # f.write("********************Folders******************\n")
+                # f.write(folders)
+                # f.write("\n")
             f.close()
 
 
@@ -504,7 +509,7 @@ class FAQGenerator:
                 data = cur.fetchall()
                 faq_file = self.faq_root_dir + task['course'] + '/' + 'faq_questions_for_instructors' + task['course_dir'] +'.txt'
                 f = open(faq_file, 'w')
-
+                count_i= 1
                 for i in range(len(data)):
                     question = data[i]['question_text']
                     title = data[i]['subject']
@@ -516,18 +521,22 @@ class FAQGenerator:
                         answer = 'None'
                     tags = data[i]['tags']
                     folders = data[i]['folders']
-                    f.write("********************Question******************\n")
+                    
+                    f.write(str(count_i))
+                    count_i +=1
+                    f.write(". ********************Question******************\n")
                     f.write(question)
                     f.write("\n")
                     f.write("********************Response******************\n")
                     f.write(answer)
                     f.write("\n")
-                    f.write("********************Tags******************\n")
-                    f.write(tags)
-                    f.write("\n")
-                    f.write("********************Folders******************\n")
-                    f.write(folders)
-                    f.write("\n")
+                    # f.write("\n")
+                    # f.write("********************Tags******************\n")
+                    # f.write(tags)
+                    # f.write("\n")
+                    # f.write("********************Folders******************\n")
+                    # f.write(folders)
+                    # f.write("\n")
                 f.close()
 
     def generate_faq_from_notes_for_instructors(self, task):
@@ -609,18 +618,20 @@ class FAQGenerator:
             data = cur.fetchall()
             faq_file = self.faq_root_dir + task['course'] + '/' + 'faq_notes_for_instructors' + task['course_dir'] +'.txt'
             f = open(faq_file, 'w')
-
+            count_notes_i = 1
             for i in range(len(data)):
                 note = data[i]['notes_text']
                 tags = data[i]['tags']
                 folders = data[i]['folders']
+                f.write(str(count_notes_i))
+                count_notes_i +=1 
                 f.write("********************Note******************\n")
                 f.write(note)
                 f.write("\n")
-                f.write("********************Tags******************\n")
-                f.write(tags)
-                f.write("\n")
-                f.write("********************Folders******************\n")
-                f.write(folders)
-                f.write("\n")
+                # f.write("********************Tags******************\n")
+                # f.write(tags)
+                # f.write("\n")
+                # f.write("********************Folders******************\n")
+                # f.write(folders)
+                # f.write("\n")
             f.close()

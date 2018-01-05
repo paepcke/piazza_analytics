@@ -11,6 +11,7 @@ All constants are defined in 'constants.py'.
 import getpass
 import argparse
 from piazza_data_parser import *
+from filter_low_edit_distance import *
 
 def main(generate_network, generate_faq):
     if not os.path.exists('../stats'):
@@ -56,9 +57,17 @@ def main(generate_network, generate_faq):
         endorsement_nodes = stats_path +"endorsement_nodes.csv"
         upvotes_nodes = stats_path+"upvotes_nodes.csv"
         combined_nodes = stats_path+"combined_nodes.csv"
+        endorsement_network_filtered_out_file = stats_path +"endorsement_network_filtered.csv"
+        upvotes_network_filtered_out_file = stats_path +"upvotes_network_filtered.csv"
+        combined_network_filtered_out_file = stats_path + "combined_network_filtered.csv"
+        interaction_nodes = stats_path +"interaction_nodes.csv"
+        interaction_network_out_file = stats_path +"interaction_network.csv"
+        interaction_nodes_flipped = stats_path +"interaction_nodes_flipped.csv"
+        interaction_network_flipped_out_file = stats_path +"interaction_network_flipped.csv"
+        study_group_out_file = stats_path + "study_group.csv"
 
         parser = DataParser()
-        parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes)
+        parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes, endorsement_network_filtered_out_file, upvotes_network_filtered_out_file, combined_network_filtered_out_file, interaction_nodes, interaction_network_out_file, interaction_nodes_flipped, interaction_network_flipped_out_file, study_group_out_file)
 
         if generate_network:
             print "Generating the network..."
@@ -94,8 +103,20 @@ def main(generate_network, generate_faq):
             faq_generator.generate_faq_from_questions_for_instructors(task)
             faq_generator.generate_faq_from_notes_for_instructors(task)
 
+        low_edit_uids = get_minimal_update_pairs(task)
+        low_info_density = stats_path+"low_edit_uids.txt"
+        fi = open(low_info_density, "w")
+        for k,v in low_edit_uids.items():
+            fi.write("Student:")
+            fi.write(str(k))
+            fi.write("\nEdit distances:\n")
+            for item in v:
+                fi.write(str(item)+ "    ")
+            fi.write("\n")
+
+
 if __name__ == '__main__':
-    main(generate_network= True, generate_faq = True)
+    main(generate_network= False, generate_faq = True)
 
     #This part will be used for command line arguments to be used:
     # parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), formatter_class=argparse.RawTextHelpFormatter)
