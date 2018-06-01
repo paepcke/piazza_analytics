@@ -8,38 +8,64 @@ for each network parameter, stored as '{attribute_name}'.csv in data/stats).
 All constants are defined in 'constants.py'.
 '''
 
-import getpass
-import argparse
-from piazza_data_parser import *
-from filter_low_edit_distance import *
+#import getpass
+#import argparse
+from piazza_data_parser import DataParser, Graph, logger, FAQGenerator
+from filter_low_edit_distance import get_minimal_update_pairs
+
+import os
+from piazza_analytics.constants import COURSES,DB_PARAMS,DATA_DIRECTORY
 
 def main(generate_network, generate_faq):
-    if not os.path.exists('../stats'):
-        os.makedirs('../stats')
+    
+    script_dir = os.path.dirname(__file__)
+    res_dir    = os.path.join(script_dir, '..')
+    
+    stats_dir    = os.path.join(res_dir,'stats')
+    figures_dir  = os.path.join(res_dir,'figures')
+    faq_dir      = os.path.join(res_dir,'FAQ')
+    data_dir     = DATA_DIRECTORY
 
-    if not os.path.exists('../figures/'):
-        os.makedirs('../figures/')
+    if not os.path.exists(stats_dir):
+        os.makedirs(stats_dir)
 
-    if not os.path.exists('../FAQ/'):
-        os.makedirs('../FAQ/')
+    if not os.path.exists(figures_dir):
+        os.makedirs(figures_dir)
 
+    if not os.path.exists(faq_dir):
+        os.makedirs(faq_dir)
+        
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
 
     tasks = []
     for c in COURSES:
         print c
-        if not os.path.exists('../stats/'+c):
-            os.makedirs('../stats/'+c)
+        crs_stats_dir = os.path.join(stats_dir, c)
+        crs_figures_dir = os.path.join(figures_dir, c)
+        crs_faq_dir = os.path.join(faq_dir, c)
+        crs_data_dir = os.path.join(data_dir, c)
+        
+        if not os.path.exists(crs_stats_dir):
+            os.makedirs(crs_stats_dir)
 
-        if not os.path.exists('../figures/'+c):
-            os.makedirs('../figures/'+c)
+        if not os.path.exists(crs_figures_dir):
+            os.makedirs(crs_figures_dir)
 
-        if not os.path.exists('../FAQ/'+c):
-            os.makedirs('../FAQ/'+c)
+        if not os.path.exists(crs_faq_dir):
+            os.makedirs(crs_faq_dir)
+            
+        if not os.path.exists(crs_data_dir):
+            os.makedirs(crs_data_dir)
+            
 
-        for root, dirs, files in os.walk(DATA_DIRECTORY+c+'/'):
+        for root, dirs, files in os.walk(crs_data_dir):
             for course_dir in sorted(dirs,key=lambda d:d[-2:]):
                 print "course_dir", course_dir
-                tasks.append({'input':root+course_dir+'/','db_name':c+course_dir, 'course':c, 'course_dir': course_dir})
+                # We append slash only because code we'll call
+                # doesn't use join:
+                input_dir = os.path.join(root,course_dir) + '/'
+                tasks.append({'input':input_dir,'db_name':c+course_dir, 'course':c, 'course_dir': course_dir})
                 if not os.path.exists('../figures/'):
                     os.makedirs('../figures/')
 
@@ -48,26 +74,46 @@ def main(generate_network, generate_faq):
         print "Starting phase 1..."
         print "Processing course_dir ", task['course_dir']
         print "Setting up the schema..."
-        stats_path = "../stats/"+ task['course']+ '/' +task['course_dir']
-        figures_path = "../figures/"+ task['course']+ '/' +task['course_dir']
+        stats_path = os.path.join(crs_stats_dir, task['course_dir'])
+        if not os.path.exists(stats_path):
+            os.makedirs(stats_path)
+            
+        figures_path = os.path.join(crs_figures_dir, task['course_dir'])
+        
+        if not os.path.exists(figures_path):
+            os.makedirs(figures_path)
 
-        endorsement_network_out_file =  stats_path +"endorsement_network.csv"
-        upvotes_network_out_file = stats_path +"upvotes_network.csv"
-        combined_network_out_file = stats_path +"combined_network.csv"
-        endorsement_nodes = stats_path +"endorsement_nodes.csv"
-        upvotes_nodes = stats_path+"upvotes_nodes.csv"
-        combined_nodes = stats_path+"combined_nodes.csv"
-        endorsement_network_filtered_out_file = stats_path +"endorsement_network_filtered.csv"
-        upvotes_network_filtered_out_file = stats_path +"upvotes_network_filtered.csv"
-        combined_network_filtered_out_file = stats_path + "combined_network_filtered.csv"
-        interaction_nodes = stats_path +"interaction_nodes.csv"
-        interaction_network_out_file = stats_path +"interaction_network.csv"
-        interaction_nodes_flipped = stats_path +"interaction_nodes_flipped.csv"
-        interaction_network_flipped_out_file = stats_path +"interaction_network_flipped.csv"
-        study_group_out_file = stats_path + "study_group.csv"
+        endorsement_network_out_file =  os.path.join(stats_path, "endorsement_network.csv")
+        upvotes_network_out_file = os.path.join(stats_path, "upvotes_network.csv")
+        combined_network_out_file = os.path.join(stats_path, "combined_network.csv")
+        endorsement_nodes = os.path.join(stats_path, "endorsement_nodes.csv")
+        upvotes_nodes = os.path.join(stats_path,"upvotes_nodes.csv")
+        combined_nodes = os.path.join(stats_path,"combined_nodes.csv")
+        endorsement_network_filtered_out_file = os.path.join(stats_path, "endorsement_network_filtered.csv")
+        upvotes_network_filtered_out_file = os.path.join(stats_path, "upvotes_network_filtered.csv")
+        combined_network_filtered_out_file = os.path.join(stats_path, "combined_network_filtered.csv")
+        interaction_nodes = os.path.join(stats_path, "interaction_nodes.csv")
+        interaction_network_out_file = os.path.join(stats_path, "interaction_network.csv")
+        interaction_nodes_flipped = os.path.join(stats_path, "interaction_nodes_flipped.csv")
+        interaction_network_flipped_out_file = os.path.join(stats_path, "interaction_network_flipped.csv")
+        study_group_out_file = os.path.join(stats_path, "study_group.csv")
 
         parser = DataParser()
-        parser.fetch(task, endorsement_network_out_file, upvotes_network_out_file, combined_network_out_file, endorsement_nodes, upvotes_nodes, combined_nodes, endorsement_network_filtered_out_file, upvotes_network_filtered_out_file, combined_network_filtered_out_file, interaction_nodes, interaction_network_out_file, interaction_nodes_flipped, interaction_network_flipped_out_file, study_group_out_file)
+        parser.fetch(task, 
+                    endorsement_network_out_file, 
+                    upvotes_network_out_file, 
+                    combined_network_out_file, 
+                    endorsement_nodes, 
+                    upvotes_nodes, 
+                    combined_nodes, 
+                    endorsement_network_filtered_out_file, 
+                    upvotes_network_filtered_out_file, 
+                    combined_network_filtered_out_file, 
+                    interaction_nodes, 
+                    interaction_network_out_file, 
+                    interaction_nodes_flipped, 
+                    interaction_network_flipped_out_file, 
+                    study_group_out_file)
 
         if generate_network:
             print "Generating the network..."

@@ -15,7 +15,8 @@ COURSES = ['cs221']
 # and the password in ~/.ssh/mysql as
 # the pwd:
 
-DATA_DIRECTORY = '../../data/'
+DATA_DIRECTORY = os.path.join(os.path.dirname(__file__), '../data')
+
 DB_PARAMS = {
     'host': 'localhost',
     'user': '',

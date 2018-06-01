@@ -58,7 +58,15 @@ class DataParser(object):
 
         q = "USE {0};".format(task['db_name'])
         cur.execute(q)
-
+        
+        LOGGING_LEVEL = logging.INFO
+        logger = logging.getLogger('forum_anal')
+        logger.setLevel(LOGGING_LEVEL)
+        handler = logging.StreamHandler()
+        handler.setLevel(LOGGING_LEVEL)
+        # Add the handler to the logger
+        logger.addHandler(handler)
+        
         logger.info("Created the database")
 
         ## Create the class content table
